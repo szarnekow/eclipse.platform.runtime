@@ -295,6 +295,9 @@ public class JobManager implements IJobManager {
 	protected void schedule(InternalJob job, long delay) {
 		Assert.isNotNull(job, "Job is null"); //$NON-NLS-1$
 		synchronized (lock) {
+			//can't schedule a job that is already waiting, sleeping, or running
+			if (job.getState() != Job.NONE)
+				return;
 			if (delay > 0) {
 				job.setState(Job.SLEEPING);
 				job.setStartTime(System.currentTimeMillis() + delay);
