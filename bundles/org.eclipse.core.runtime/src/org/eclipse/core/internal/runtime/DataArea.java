@@ -79,8 +79,10 @@ public class DataArea {
 		if (!isInstanceDataLocationInitiliazed()) {
 			return getTemporaryLogLocation();
 		}
-		if (tmpLog != null)
+		if (tmpLog != null) {
 			copyOldLog(getTemporaryLogLocation(), getMetadataLocation().append(F_LOG));
+			tmpLog = null;
+		}
 		return getMetadataLocation().append(F_LOG);
 	}
 	protected IPath getTemporaryLogLocation() {
