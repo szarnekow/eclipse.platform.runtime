@@ -40,7 +40,7 @@ public interface IJobManager {
 	 * 
 	 * @param listener the listener to be added.
 	 */
-	public void addJobListener(IJobListener listener);
+	public void addJobChangeListener(IJobChangeListener listener);
 	/**
 	 * Stops all jobs in the given job family.  Jobs in the family that are currently waiting
 	 * will be removed from the queue.  Sleeping jobs will be discarded without having 
@@ -81,7 +81,7 @@ public interface IJobManager {
 	 * 
 	 * @param listener the listener to be removed.
 	 */
-	public void removeJobListener(IJobListener listener);
+	public void removeJobChangeListener(IJobChangeListener listener);
 	/**
 	 * Provides a hook that is notified whenever a thread is about to wait on a lock,
 	 * or when a thread is about to release a lock.  This hook must only be set once.

@@ -13,49 +13,49 @@ import org.eclipse.core.runtime.IStatus;
 
 /**
  * This adapter class provides default implementations for the
- * methods described by the <code>IJobListener</code> interface.
+ * methods described by the <code>IJobChangeListener</code> interface.
  * <p>
  * Classes that wish to listen to the progress of scheduled jobs can
  * extend this class and override only the methods which they are
  * interested in.
  * </p>
  *
- * @see IJobListener
+ * @see IJobChangeListener
  * @since 3.0
  */
-public class JobAdapter implements IJobListener {
+public class JobChangeAdapter implements IJobChangeListener {
 	/* (non-Javadoc)
-	 * Method declared on IJobListener.
+	 * Method declared on IJobChangeListener.
 	 * This default implementation does nothing
 	 */
 	public void aboutToRun(Job job) {
 	}
 	/* (non-Javadoc)
-	 * Method declared on IJobListener.
+	 * Method declared on IJobChangeListener.
 	 * This default implementation does nothing
 	 */
 	public void awake(Job job) {
 	}
 	/* (non-Javadoc)
-	 * Method declared on IJobListener.
+	 * Method declared on IJobChangeListener.
 	 * This default implementation does nothing
 	 */
 	public void done(Job job, IStatus result) {
 	}
 	/* (non-Javadoc)
-	 * Method declared on IJobListener.
+	 * Method declared on IJobChangeListener.
 	 * This default implementation does nothing
 	 */
 	public void running(Job job) {
 	}
 	/* (non-Javadoc)
-	 * Method declared on IJobListener.
+	 * Method declared on IJobChangeListener.
 	 * This default implementation does nothing
 	 */
 	public void scheduled(Job job) {
 	}
 	/* (non-Javadoc)
-	 * Method declared on IJobListener.
+	 * Method declared on IJobChangeListener.
 	 * This default implementation does nothing
 	 */
 	public void sleeping(Job job) {

@@ -21,14 +21,14 @@ import org.eclipse.core.runtime.IStatus;
  * receive duplicate notifications).
  * </p>
  * 
- * @see JobAdapter
- * @see IJobManager#addJobListener(IJobListener)
- * @see IJobManager#removeJobListener(IJobListener)
- * @see Job#addJobListener(IJobListener)
- * @see Job#removeJobListener(IJobListener)
+ * @see JobChangeAdapter
+ * @see IJobManager#addJobChangeListener(IJobChangeListener)
+ * @see IJobManager#removeJobChangeListener(IJobChangeListener)
+ * @see Job#addJobChangeListener(IJobChangeListener)
+ * @see Job#removeJobChangeListener(IJobChangeListener)
  * @since 3.0
  */
-public interface IJobListener {
+public interface IJobChangeListener {
 	/**
 	 * Notification that a job is about to be run. Listeners are allowed to sleep, cancel, 
 	 * or change the priority of the job before it is started (and as a result may prevent

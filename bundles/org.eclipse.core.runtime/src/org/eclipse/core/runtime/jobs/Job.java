@@ -137,8 +137,8 @@ public abstract class Job extends InternalJob {
 	 * 
 	 * @param listener the listener to be added.
 	 */
-	public final void addJobListener(IJobListener listener) {
-		super.addJobListener(listener);
+	public final void addJobChangeListener(IJobChangeListener listener) {
+		super.addJobChangeListener(listener);
 	}
 	/**
 	 * Returns whether this job belongs to the given family.  Job families are
@@ -218,8 +218,8 @@ public abstract class Job extends InternalJob {
 	 * 
 	 * @param listener the listener to be removed.
 	 */
-	public final void removeJobListener(IJobListener listener) {
-		super.removeJobListener(listener);
+	public final void removeJobChangeListener(IJobChangeListener listener) {
+		super.removeJobChangeListener(listener);
 	}
 	/**
 	 * Executes the current job.  Returns the result of the execution.
