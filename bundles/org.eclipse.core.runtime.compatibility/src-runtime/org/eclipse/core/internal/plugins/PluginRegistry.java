@@ -32,9 +32,6 @@ public class PluginRegistry implements IPluginRegistry {
 
 	private HashMap descriptors = new HashMap();
 
-	public IExtensionRegistry getExtensionRegistry() {
-		return extRegistry;
-	}
 	public PluginRegistry() {
 		extRegistry = InternalPlatform.getDefault().getRegistry();
 	}

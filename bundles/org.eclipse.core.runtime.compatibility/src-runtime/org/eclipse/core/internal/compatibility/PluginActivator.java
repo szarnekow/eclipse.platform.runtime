@@ -12,6 +12,7 @@ package org.eclipse.core.internal.compatibility;
 
 import org.eclipse.core.internal.plugins.PluginDescriptor;
 import org.eclipse.core.internal.registry.Extension;
+import org.eclipse.core.internal.runtime.*;
 import org.eclipse.core.internal.runtime.InternalPlatform;
 import org.eclipse.core.internal.runtime.Policy;
 import org.eclipse.core.runtime.*;
@@ -36,7 +37,7 @@ public class PluginActivator implements BundleActivator {
 
 		this.context = context;
 
-		PluginDescriptor pd = (PluginDescriptor) Extension.getPluginDescriptor(context.getBundle().getGlobalName());
+		PluginDescriptor pd = (PluginDescriptor) CompatibilityHelper.getPluginDescriptor(context.getBundle().getGlobalName());
 		plugin = pd.getPlugin();
 		plugin.startup();
 	}

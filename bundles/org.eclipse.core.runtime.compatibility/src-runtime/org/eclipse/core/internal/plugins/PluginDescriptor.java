@@ -114,7 +114,7 @@ public class PluginDescriptor implements IPluginDescriptor {
 	}
 	/**
 	 * @return a URL to the install location that does not need to be resolved.
-	 */	
+	 */
 	public URL getInstallURLInternal() {
 		try {
 			return InternalPlatform.getDefault().resolve(getInstallURL());
@@ -445,55 +445,28 @@ public class PluginDescriptor implements IPluginDescriptor {
 		// constructor or startup() method, and waits on those
 		// threads before returning (ie. calls join()).
 
-		boolean errorExit = true;
-		//A backward compatible plugin being started through a call to start on its bundle
-		if (bundleOsgi.getState() == Bundle.STARTING) {
-			//		check if already activated or pending
-			if (pluginActivationEnter()) {
-				try {
-					internalDoPluginActivation();
-					errorExit = false;
-				} finally {
-					pluginActivationExit(errorExit);
-				}
+		// sanity checking
+		if ((bundleOsgi.getState() & (Bundle.RESOLVED | Bundle.STARTING | Bundle.ACTIVE)) == 0)
+			throw new IllegalArgumentException();
+		// plug-in hasn't been activated yet - start bundle
+		if (bundleOsgi.getState() == Bundle.RESOLVED)
+			try {
+				bundleOsgi.start();
+			} catch (BundleException e) {
+				throwException(Policy.bind("plugin.startupProblems", e.toString()), e);
 			}
+		if (pluginObject != null) 
 			return;
-		}
-
-		//A new bundle that someone is trying to use as a plugin
-		if (bundleOsgi.getState() == Bundle.ACTIVE && pluginObject == null) {
-			if (pluginActivationEnter()) {
-				try {
-					internalDoPluginActivation();
-					errorExit = false;
-				} finally {
-					pluginActivationExit(errorExit);
-				}
-			}
-			return;
-		}
-
-		//A backward compatible plugin is being started through PluginDescriptor#getPlugin()
-		try {
-			bundleOsgi.start();
-			// here we know the bundle is active. If the bundle does not use PluginActivator  
-			// the plug-in activation (and plugin object creation) must be forced by hand 
-			// (otherwise the first case above would handle it)
-			if (pluginObject == null) {
-				if (pluginActivationEnter()) {
-					try {
-						internalDoPluginActivation();
-						errorExit = false;
-					} finally {
-						pluginActivationExit(errorExit);
-					}
-				}
-				return;
-			}			
-		} catch (BundleException e) {
-			throwException(Policy.bind("plugin.startupProblems",getId()), e);
-		}
-	}
+		boolean errorExit = true;			
+		//	check if already activated or pending		
+		if (pluginActivationEnter()) 
+			try {
+				internalDoPluginActivation();
+				errorExit = false;
+			} finally {
+				pluginActivationExit(errorExit);
+			}	
+}
 
 	private String getPluginClass() {
 		return (String) bundleOsgi.getHeaders().get("Plugin-class");
@@ -521,7 +494,7 @@ public class PluginDescriptor implements IPluginDescriptor {
 		// find the correct constructor
 		Constructor construct = null;
 		try {
-			construct = runtimeClass.getConstructor(new Class[] { IPluginDescriptor.class });
+			construct = runtimeClass.getConstructor(new Class[]{IPluginDescriptor.class});
 		} catch (NoSuchMethodException eNoConstructor) {
 			errorMsg = Policy.bind("plugin.instantiateClassError", getId(), pluginClassName); //$NON-NLS-1$
 			throwException(errorMsg, eNoConstructor);
@@ -529,7 +502,7 @@ public class PluginDescriptor implements IPluginDescriptor {
 
 		// create a new instance
 		try {
-			pluginObject = (Plugin) construct.newInstance(new Object[] { this });
+			pluginObject = (Plugin) construct.newInstance(new Object[]{this});
 		} catch (ClassCastException e) {
 			errorMsg = Policy.bind("plugin.notPluginClass", pluginClassName); //$NON-NLS-1$
 			throwException(errorMsg, e);
@@ -539,33 +512,10 @@ public class PluginDescriptor implements IPluginDescriptor {
 		}
 	}
 
-	public void start() throws CoreException {
-		// run startup()
-		final String message = Policy.bind("plugin.startupProblems", getId()); //$NON-NLS-1$
-		final MultiStatus multiStatus = new MultiStatus(Platform.PI_RUNTIME, Platform.PLUGIN_ERROR, message, null);
-
-		if (!multiStatus.isOK())
-			throw new CoreException(multiStatus);
-
-		ISafeRunnable code = new ISafeRunnable() {
-			public void run() throws Exception {
-				pluginObject.startup();
-			}
-			public void handleException(Throwable e) {
-				multiStatus.add(new Status(IStatus.WARNING, Platform.PI_RUNTIME, Platform.PLUGIN_ERROR, message, e));
-				try {
-					pluginObject.shutdown();
-				} catch (Exception ex) {
-					// Ignore exceptions during shutdown. Since startup failed we are probably
-					// in a weird state anyway.
-				}
-			}
-		};
-		InternalPlatform.getDefault().run(code);
-	}
-
 	public PluginDescriptor(org.osgi.framework.Bundle b) {
 		bundleOsgi = b;
+		if( (b.getState() & Bundle.ACTIVE) != 0 )
+			active = true;
 	}
 	public boolean isLegacy() {
 		return new Boolean((String) bundleOsgi.getHeaders().get("Legacy")).booleanValue();
@@ -577,5 +527,9 @@ public class PluginDescriptor implements IPluginDescriptor {
 	/** @see PluginModel#getLocation() */
 	public String getLocation() {
 		return getInstallURLInternal().toExternalForm();
+	}
+	
+	public void setPlugin(Plugin object) { 
+		pluginObject = object;
 	}
 }
