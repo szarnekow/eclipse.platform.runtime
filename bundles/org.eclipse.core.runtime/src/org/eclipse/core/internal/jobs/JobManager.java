@@ -118,7 +118,7 @@ public class JobManager implements IJobManager {
 			}
 		}
 		//cancelation may only fail if the job is currently running
-		return oldState == Job.RUNNING;
+		return oldState != Job.RUNNING;
 	}
 	/* (non-Javadoc)
 	 * @see org.eclipse.core.runtime.jobs.IJobManager#cancel(java.lang.String)
@@ -160,12 +160,14 @@ public class JobManager implements IJobManager {
 	private void doShutdown() {
 		synchronized (lock) {
 			running = false;
+			//cancel all running jobs
+			for (Iterator it = allJobs.iterator(); it.hasNext();) {
+				Job job = (Job) it.next();
+				job.cancel();
+			}
 			//clean up
 			sleeping.clear();
 			waiting.clear();
-			//discard all jobs (progress callbacks from running jobs
-			//will now think the jobs are canceled, and should terminate
-			//in a timely fashion)
 			allJobs.clear();
 		}
 		pool.shutdown();
@@ -177,18 +179,21 @@ public class JobManager implements IJobManager {
 	 * @return
 	 */
 	void endJob(Job job, IStatus result) {
+		InternalJob internalJob = (InternalJob)job;
 		synchronized (lock) {
-			((InternalJob) job).setState(Job.NONE);
+			internalJob.setState(Job.NONE);
+			//clear parent result from this run
+			internalJob.setParentResult(null);
 			allJobs.remove(job);
 		}
-		//schedule child jobs
-		Job[] children = ((InternalJob) job).getChildren();
+		//schedule child jobs outside sync block because Job.schedule contacts WorkerPool
+		Job[] children = internalJob.getChildren();
 		if (children != null) {
 			for (int i = 0; i < children.length; i++) {
+				((InternalJob)children[i]).setParentResult(result);
 				children[i].schedule();
 			}
 		}
-
 		//notify listeners outside sync block
 		IJobListener[] listeners = getJobListeners();
 		for (int i = 0; i < listeners.length; i++) {
@@ -313,6 +318,8 @@ public class JobManager implements IJobManager {
 					//update the job wake time
 					job.setStartTime(NEVER);
 					return true;
+				case Job.NONE:
+					return true;
 				case Job.WAITING :
 					//put the job to sleep
 					waiting.remove(job);
@@ -404,6 +411,9 @@ public class JobManager implements IJobManager {
 			job.setStartTime(System.currentTimeMillis() + delayFor(job.getPriority()));
 			waiting.enqueue(job);
 		}
+		//call the pool outside sync block to avoid deadlock
+		pool.jobQueued(job);
+
 		IJobListener[] listeners = getJobListeners();
 		for (int i = 0; i < listeners.length; i++) {
 			listeners[i].awake((Job) job);

@@ -11,6 +11,7 @@ package org.eclipse.core.internal.jobs;
 
 import java.util.*;
 
+import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.jobs.Job;
 
 /**
@@ -19,6 +20,8 @@ import org.eclipse.core.runtime.jobs.Job;
 public abstract class InternalJob implements Comparable {
 	private static final JobManager manager = JobManager.getInstance();
 	private static int nextJobNumber = 0;
+	private IStatus parentResult;
+	private List children;
 
 	private final int jobNumber = nextJobNumber++;
 
@@ -29,13 +32,28 @@ public abstract class InternalJob implements Comparable {
 	 */
 	private long startTime;
 	private int status = Job.NONE;
-	private List children;
+	protected void addChild(Job job) {
+		if (children == null)
+			children = Collections.synchronizedList(new ArrayList(2));
+		children.add(job);
+	}
 
 	public boolean cancel() {
 		return manager.cancel((Job) this);
 	}
 	public final int compareTo(Object otherJob) {
 		return (int) (startTime - ((InternalJob) otherJob).startTime);
+	}
+	/**
+	 * Returns the children of this job, or null if this job has no children
+	 */
+	final Job[] getChildren() {
+		if (children == null)
+			return null;
+		return (Job[]) children.toArray(new Job[children.size()]);
+	}
+	protected IStatus getParentResult() {
+		return parentResult;
 	}
 	protected int getPriority() {
 		return priority;
@@ -50,18 +68,25 @@ public abstract class InternalJob implements Comparable {
 	void internalSetPriority(int newPriority) {
 		this.priority = newPriority;
 	}
+	protected void removeChild(Job job) {
+		if (children == null)
+			return;
+		children.remove(job);
+		if (children.size() == 0)
+			children = null;
+	}
 	public void schedule(long delay) {
 		manager.schedule(this, delay);
 	}
 	protected void setPriority(int NewPriority) {
 		manager.setPriority(this, NewPriority);
 	}
-
-	/*package*/
+	final void setParentResult(IStatus result) {
+		this.parentResult = result;
+	}
 	final void setStartTime(long time) {
 		startTime = time;
 	}
-	/*package*/
 	final void setState(int i) {
 		status = i;
 	}
@@ -73,25 +98,5 @@ public abstract class InternalJob implements Comparable {
 	}
 	protected void wakeUp() {
 		manager.wakeUp(this);
-	}
-	protected void addChild(Job job) {
-		if (children == null)
-			children = Collections.synchronizedList(new ArrayList(2));
-		children.add(job);
-	}
-	protected void removeChild(Job job) {
-		if (children == null)
-			return;
-		children.remove(job);
-		if (children.size() == 0)
-			children = null;
-	}
-	/**
-	 * Returns the children of this job, or null if this job has no children
-	 */
-	final Job[] getChildren() {
-		if (children == null)
-			return null;
-		return (Job[]) children.toArray(new Job[children.size()]);
 	}
 }

@@ -77,7 +77,6 @@ class ProgressHandler implements IProgressMonitor {
 	 * @see org.eclipse.core.runtime.IProgressMonitor#isCanceled()
 	 */
 	public boolean isCanceled() {
-		//canceled jobs are unknown to the job manager
 		return jobForThread().getState() == Job.NONE;
 	}
 	/**
