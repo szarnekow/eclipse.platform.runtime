@@ -27,6 +27,12 @@ public interface IJobManager {
 	 * @param listener the listener to be added.
 	 */
 	public void addProgressListener(IProgressListener listener);
+	/**
+	 * Returns the job that is currently running in this thread, or null if there
+	 * is no currently running job.
+	 * @param listener
+	 */
+	public Job currentJob();
 
 	/**
 	 * Removes a job listener from the job manager.  

@@ -88,7 +88,8 @@ public class JobManager implements IJobManager {
 		int oldState;
 		boolean wasWaiting;
 		synchronized (lock) {
-			allJobs.remove(job);
+			if (!allJobs.remove(job))
+				return true;
 			wasWaiting = waiting.contains(job);
 			oldState = job.getState();
 			((InternalJob)job).setState(Job.NONE);
@@ -109,6 +110,13 @@ public class JobManager implements IJobManager {
 	 */
 	public void cancel(String family) {
 	}
+	public Job currentJob() {
+		Thread current = Thread.currentThread();
+		if (current instanceof Worker)
+			return ((Worker)current).currentJob();
+		return null;
+	}
+
 	/**
 	 * Returns the next job to be run.  If no jobs are waiting to run,
 	 * this method will block until a job is available.  The worker must
@@ -118,6 +126,7 @@ public class JobManager implements IJobManager {
 	void endJob(Job job, IStatus result) {
 		synchronized (lock) {
 			((InternalJob)job).setState(Job.NONE);
+			allJobs.remove(job);
 		}
 		//notify listeners outside sync block
 		IJobListener[] listeners = getJobListeners();
