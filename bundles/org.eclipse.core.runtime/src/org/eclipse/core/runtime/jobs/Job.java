@@ -26,9 +26,10 @@ import org.eclipse.core.runtime.IStatus;
  * (either normally or through cancelation), the state changes back to 
  * <code>NONE</code>.  
  * 
- * If the job is successfully paused at any time, it moves into the 
- * <code>SLEEPING</code> state.  The job will remain in the paused state until it is 
- * either resumed or canceled.  A running job cannot be paused.
+ * A job can also be in the <code>SLEEPING</code> state.  This happens if a user
+ * calls Job.sleep() on a waiting job, or if a job is scheduled to run after a specified
+ * delay.  Sleeping jobs can be woken at any time using Job.wakeUp(), which will
+ * schedule the job for execution.  A running job cannot be put to sleep.
  * 
  * Jobs can be assigned a priority that is used as a hint about how the job should
  * be scheduled.  There is no guarantee that jobs of one priority will be run before
@@ -91,62 +92,42 @@ public abstract class Job extends InternalJob {
 	 * @see Job#run
 	 */
 	public static final int DECORATE = 50;
-	/** 
-	 * Job return code (value 0) indicating successful completion.
-	 * 
-	 * @see Job#run
-	 */
-	public static final int SUCCESS = 0;
-	/** 
-	 * Job return code (value 1) indicating failed completion.
-	 * 
-	 * @see Job#run
-	 */
-	public static final int FAILURE = 1;
-	/**
-	 * Job return code (value 2) indicating that a job was abnormally
-	 * canceled.
-	 * 
-	 * @see Job#run
-	 */
-	public static final int CANCELED = 2;
 
 	/** 
-	 * Job state/priority code (value 4).  Indicates that a job is not paused, 
-	 * waiting, or running (i.e., the job manager doesn't know anything about
-	 * the job).
+	 * Job state code (value 4) indicating that a job is not 
+	 * currently sleeping, waiting, or running (i.e., the job manager doesn't know 
+	 * anything about the job). 
 	 * 
-	 * @see IJobManager#getPriority
 	 * @see IJobManager#getState
 	 */
 	public static final int NONE = -1;
 
 	/** 
-	 * Job return/state code (value 3) indicating that a job is paused.
+	 * Job state code (value 3) indicating that a job is sleeping.
 	 * 
 	 * @see Job#run
 	 * @see IJobManager#getState
 	 */
-	public static final int SLEEPING = 3;
+	public static final int SLEEPING = 1;
 
 	/** 
 	 * Job state code (value 4) indicating that a job is waiting to be run.
 	 * 
 	 * @see IJobManager#getState
 	 */
-	public static final int WAITING = 4;
+	public static final int WAITING = 2;
 
 	/** 
 	 * Job state code (value 5) indicating that a job is currently running
 	 * 
 	 * @see IJobManager#getState
 	 */
-	public static final int RUNNING = 5;
+	public static final int RUNNING = 3;
 
 	/**
 	 * Stops the job.  If the job is currently waiting,
-	 * it will be removed from the queue.  If the job is paused,
-	 * it will be discarded without having a chance to resume and its paused state
+	 * it will be removed from the queue.  If the job is sleeping,
+	 * it will be discarded without having a chance to resume and its sleeping state
 	 * will be cleared.  If the job is currently executing, it will be asked to
 	 * stop but there is no guarantee that it will do so.
 	 * 
@@ -158,11 +139,11 @@ public abstract class Job extends InternalJob {
 	}
 
 	/**
-	 * Returns the priority of a job that is waiting, running, or
-	 * paused.  Returns NONE if the job is not in any of these states.
+	 * Returns the priority of this job.  The priority is used as a hint when the job
+	 * is scheduled to be run.
 	 * 
 	 * @return the priority of the job.  One of INTERACTIVE, SHORT, LONG, BUILD, 
-	 * 	DECORATE, or NONE.
+	 * 	or DECORATE.
 	 */
 	public final int getPriority() {
 		return super.getPriority();
@@ -170,7 +151,7 @@ public abstract class Job extends InternalJob {
 	/**
 	 * Returns the state of the job. Result will be one of:
 	 * <ul>
-	 * <li>Job.RUNNING - if the job is currently being run.</li>
+	 * <li>Job.RUNNING - if the job is currently running.</li>
 	 * <li>Job.WAITING - if the job is waiting to be run.</li>
 	 * <li>Job.SLEEPING - if the job is sleeping.</li>
 	 * <li>Job.NONE - in all other cases.</li>
@@ -179,29 +160,6 @@ public abstract class Job extends InternalJob {
 	 */
 	public final int getState() {
 		return super.getState();
-	}
-	/**
-	 * Requests that this job be suspended.
-	 * If the job is currently waiting to be run, it will be removed
-	 * from the queue.  If the job is currently running, this method has no effect. If
-	 * the job is not currently running, its state will become <code>SLEEPING</code>,
-	 * and will remain that way until either resumed or canceled.
-	 * 
-	 * Paused jobs can be resumed using <code>resume</code>.
-	 * 
-	 * @return false if the job is currently running (and thus cannot
-	 * be paused), and true in all other cases.
-	 */
-	public final boolean sleep() {
-		return super.sleep();
-	}
-	/**
-	 * Resumes execution of the given job.  If the job is not currently
-	 * paused, this request is ignored.
-	 * @param job
-	 */
-	public final void wakeUp() {
-		super.wakeUp();
 	}
 	/**
 	 * Executes the current job.  Returns the result of the execution.
@@ -226,7 +184,6 @@ public abstract class Job extends InternalJob {
 	public final void setPriority(int i) {
 		super.setPriority(i);
 	}
-
 	/**
 	 * Returns true if the job should be run, and false otherwise.
 	 * If false is returned, this job will be discard by the job manager
@@ -235,8 +192,34 @@ public abstract class Job extends InternalJob {
 	 * <p>This method will be called immediately prior to calling the job's
 	 * run method, so it can be used for last minute pre-condition checking before
 	 * a job is run.  </p>
+	 * 
+	 * <p>Clients may override this method.  This default implementation always returns
+	 * <code>true</code>.
+	 * </p>
 	 */
 	public boolean shouldRun() {
 		return true;
+	}
+	/**
+	 * Requests that this job be suspended.  If the job is currently waiting to be run, it 
+	 * will be removed from the queue move into the <code>SLEEPING</code> state.
+	 * The job will remain asleep until either resumed or canceled.  If this job is not
+	 * currently waiting to be run, this method has no effect.
+	 * 
+	 * Sleeping jobs can be resumed using <code>wakeUp</code>.
+	 * 
+	 * @return false if the job is currently running (and thus cannot
+	 * be put to sleep), and true in all other cases.
+	 */
+	public final boolean sleep() {
+		return super.sleep();
+	}
+	/**
+	 * Resumes execution of the given job.  If the job is not currently
+	 * sleeping, this request is ignored.
+	 * @param job
+	 */
+	public final void wakeUp() {
+		super.wakeUp();
 	}
 }

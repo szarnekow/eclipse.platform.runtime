@@ -342,6 +342,8 @@ public class JobManager implements IJobManager {
 	 */
 	long sleepHint() {
 		synchronized (lock) {
+			if (waiting.peek() != null)
+				return 0L;
 			InternalJob next = (InternalJob)sleeping.peek();
 			return next == null ? NEVER : next.getStartTime() - System.currentTimeMillis();
 		}

@@ -39,7 +39,7 @@ public interface ILock {
 	/**
 	 * Acquires this lock.  If the lock is in use, callers will block until the lock becomes
 	 * available.  If this thread owns several locks, callers will be blocked until all
-	 * threads they require become available.
+	 * threads they require become available, or until the thread is interrupted.
 	 */
 	public void acquire() throws InterruptedException;
 	/**
