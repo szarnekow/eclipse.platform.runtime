@@ -24,7 +24,7 @@ import java.io.File;
  */
 public class Path implements IPath, Cloneable {
 	
-	/** The path string (never null). */
+	/** The path segments */
 	private String[] segments;
 
 	/** The device id string. May be null if there is no device. */
@@ -248,8 +248,9 @@ private void collapseParentReferences() {
 	System.arraycopy(stack, 0, newSegments, 0, stackPointer);
 	this.segments = newSegments;
 }
-/*
- *
+/**
+ * Removes duplicate slashes from the given path, with the exception
+ * of leading double slash which represents a UNC path.
  */
 private String collapseSlashes(String path) {
 	int length = path.length();
