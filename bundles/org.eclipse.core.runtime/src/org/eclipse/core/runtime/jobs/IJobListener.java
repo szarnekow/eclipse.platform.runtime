@@ -22,22 +22,24 @@ import org.eclipse.core.runtime.IStatus;
 public interface IJobListener {
 	/**
 	 * Notification that a job is about to be run.
-	 * Listeners are allowed to pause, cancel, or change the priority of the 
-	 * given job before it is started (and as a result may prevent
+	 * Listeners are allowed to sleep, cancel, or change the priority of the 
+	 * job before it is started (and as a result may prevent
 	 * the run from actually occurring).
+	 * 
 	 * @param job the job that is about to be run.
 	 */
 	public void aboutToRun(Job job);
 	/**
-	 * Notification that the given job is being added to the queue of 
-	 * scheduled jobs.  Listeners are allowed to pause, cancel, or
-	 * change the priority of the given job before it has a chance to run.
-	 * @param job the job that is about to be added.
+	 * Notification that a job was previously sleeping and has now been rescheduled
+	 * to run.
+	 * 
+	 * @param job the job that has been awakened
 	 */
-	public void aboutToSchedule(Job job);
+	public void awake(Job job);
 	/**
 	 * Notification that a job has stopped running, either due to cancelation, successful
-	 * completion, or failure.  The supplied status severity indicates the reason for failure.
+	 * completion, or failure.  The supplied status object indicates the reason for failure.
+	 * 
 	 * @param job the job that has stopped.
 	 * @param result the result from the job's <code>run</code>
 	 * method.
@@ -45,18 +47,23 @@ public interface IJobListener {
 	public void finished(Job job, IStatus result);
 	/**
 	 * Notification that a job has started running.
+	 * 
 	 * @param job the job that has started.
 	 */
 	public void running(Job job);
 	/**
-	 * Notification that a job was waiting to run and has now been paused.
-	 * @param job the job that has been paused
+	 * Notification that a job has been added to the queue of 
+	 * scheduled jobs.  Listeners are allowed to sleep, cancel, or
+	 * change the priority of the given job before it has a chance to run.
+	 * 
+	 * @param job the job that is about to be added.
 	 */
-	public void paused(Job job);
+	public void scheduled(Job job);
 	/**
-	 * Notification that a job was previously paused and has now been rescheduled
-	 * to run.
-	 * @param job the job that has been resumed
+	 * Notification that a job was waiting to run and has now been put in the
+	 * sleeping state.
+	 * 
+	 * @param job the job that has been put to sleep
 	 */
-	public void resumed(Job job);
+	public void sleeping(Job job);
 }

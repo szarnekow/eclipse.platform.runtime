@@ -16,10 +16,22 @@ import org.eclipse.core.internal.runtime.Assert;
 import org.eclipse.core.runtime.*;
 import org.eclipse.core.runtime.jobs.*;
 
+/**
+ * Implementation of API type IJobManager
+ * 
+ * Implementation note: all the data structures of this class are protected
+ * by a single lock object held as a private field in this class.  The JobManager
+ * instance itself is not used because this class is publicly reachable, and third
+ * party clients may try to sychronize on it.
+ * 
+ * The WorkerPool class uses its own monitor for synchronizing its data
+ * structures. To avoid deadlock between the two classes, the JobManager
+ * must NEVER call the worker pool while its own monitor is held.
+ */
 public class JobManager implements IJobManager {
 	public static final boolean DEBUG = true;
 	private static JobManager instance;
-	private static final long NEVER = Long.MAX_VALUE;
+	protected static final long NEVER = Long.MAX_VALUE;
 	/**
 	 * Set of all jobs.
 	 */
@@ -157,6 +169,14 @@ public class JobManager implements IJobManager {
 			((InternalJob) job).setState(Job.NONE);
 			allJobs.remove(job);
 		}
+		//schedule child jobs
+		Job[] children = ((InternalJob) job).getChildren();
+		if (children != null) {
+			for (int i = 0; i < children.length; i++) {
+				children[i].schedule();
+			}
+		}
+
 		//notify listeners outside sync block
 		IJobListener[] listeners = getJobListeners();
 		for (int i = 0; i < listeners.length; i++) {
@@ -177,12 +197,6 @@ public class JobManager implements IJobManager {
 	}
 	IProgressMonitor getProgressHandler() {
 		return progressHandler;
-	}
-	/* (non-Javadoc)
-	 * @see IJobManager#newJobFamily(java.lang.String)
-	 */
-	public IJobFamily newJobFamily(int priority, boolean exclusive) {
-		return new JobFamily(priority, exclusive);
 	}
 	/* (non-Javadoc)
 	 * @see IJobManager#newLock(java.lang.String)
@@ -223,31 +237,12 @@ public class JobManager implements IJobManager {
 		progressHandler.removeListener(listener);
 	}
 	/* (non-Javadoc)
-	 * @see org.eclipse.core.runtime.jobs.IJobManager#schedule(ob)
+	 * @see org.eclipse.core.runtime.jobs.Job#schedule(long)
 	 */
-	public void schedule(Job job) {
-		schedule(job, 0);
-	}
-	/* (non-Javadoc)
-	 * @see org.eclipse.core.runtime.jobs.IJobManager#schedule(Job, JobFamily)
-	 */
-	public void schedule(Job job, IJobFamily family) {
-		((InternalJob) job).setFamily(family);
-		schedule(job);
-	}
-	/* (non-Javadoc)
-	 * @see org.eclipse.core.runtime.jobs.IJobManager#schedule(Job, long)
-	 */
-	public void schedule(Job newJob, long delay) {
-		Assert.isNotNull(newJob, "Job is null"); //$NON-NLS-1$
-		InternalJob job = (InternalJob) newJob;
+	public void schedule(InternalJob job, long delay) {
+		Assert.isNotNull(job, "Job is null"); //$NON-NLS-1$
 		synchronized (lock) {
 			allJobs.add(job);
-		}
-		//notify listeners outside sync block
-		IJobListener[] listeners = getJobListeners();
-		for (int i = 0; i < listeners.length; i++) {
-			listeners[i].aboutToSchedule(newJob);
 		}
 		synchronized (lock) {
 			//if the job is removed from allJobs, then it has been canceled
@@ -268,6 +263,13 @@ public class JobManager implements IJobManager {
 		}
 		//call the pool outside sync block to avoid deadlock
 		pool.jobQueued(job);
+
+		//notify listeners outside sync block
+		IJobListener[] listeners = getJobListeners();
+		Job publicJob = (Job)job;
+		for (int i = 0; i < listeners.length; i++) {
+			listeners[i].scheduled(publicJob);
+		}
 	}
 	/**
 	 * Changes a job priority.
@@ -304,9 +306,9 @@ public class JobManager implements IJobManager {
 		pool.shutdown();
 	}
 	/* (non-Javadoc)
-	 * @see IJobFamily#sleep()
+	 * @see IJobManager#sleep(String)
 	 */
-	public void sleep(IJobFamily family) {
+	public void sleep(String family) {
 	}
 	/**
 	 * Puts a job to sleep. Returns true if the job was successfully put to sleep.
@@ -332,13 +334,14 @@ public class JobManager implements IJobManager {
 		}
 		IJobListener[] listeners = getJobListeners();
 		for (int i = 0; i < listeners.length; i++) {
-			listeners[i].paused((Job) job);
+			listeners[i].sleeping((Job) job);
 		}
 		return true;
 	}
 	/**
 	 * Returns the estimated time in milliseconds before the next job is scheduled
-	 * to wake up. The result may be negative.
+	 * to wake up. The result may be negative.  Returns JobManager.NEVER if
+	 * there are no sleeping or waiting jobs.
 	 */
 	long sleepHint() {
 		synchronized (lock) {
@@ -403,9 +406,9 @@ public class JobManager implements IJobManager {
 	public void wait(String family, IProgressMonitor monitor) {
 	}
 	/* (non-Javadoc)
-	 * @see IJobFamily#wakeUp()
+	 * @see IJobFamily#wakeUp(String)
 	 */
-	public void wakeUp(IJobFamily family) {
+	public void wakeUp(String family) {
 	}
 	/**
 	 * Implementation of wakeUp()
@@ -422,7 +425,7 @@ public class JobManager implements IJobManager {
 		}
 		IJobListener[] listeners = getJobListeners();
 		for (int i = 0; i < listeners.length; i++) {
-			listeners[i].resumed((Job) job);
+			listeners[i].awake((Job) job);
 		}
 	}
 }

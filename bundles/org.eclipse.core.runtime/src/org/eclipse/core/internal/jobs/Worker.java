@@ -54,6 +54,8 @@ public class Worker extends Thread {
 					currentJob = null;
 				}
 			}
+		} catch (Throwable t) {
+			t.printStackTrace();
 		} finally {
 			pool.endWorker(this);
 		}

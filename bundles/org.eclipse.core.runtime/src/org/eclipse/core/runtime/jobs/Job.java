@@ -125,6 +125,31 @@ public abstract class Job extends InternalJob {
 	public static final int RUNNING = 3;
 
 	/**
+	 * Adds a job to be run after this job has finished running.  No guarantee is made about
+	 * the order of execution of the children.
+	 * 
+	 * @param job the job to run after this job is finished.
+	 * @return
+	 */
+	public void addChild(Job job) {
+		super.addChild(job);
+	}
+	/**
+	 * Returns whether this job belongs to the given family.  Job families are
+	 * represented as strings that are not interpreted or specified in any way
+	 * by the job manager.  Thus, a job can choose to belong to any number of
+	 * families.
+	 * 
+	 * <p>Clients may override this method.  This default implementation always returns
+	 * <code>false</code>.
+	 * </p>
+	 * 
+	 * @return true if this job belongs to the given family, and false otherwise.
+	 */
+	public boolean belongsTo(String family) {
+		return false;
+	}
+	/**
 	 * Stops the job.  If the job is currently waiting,
 	 * it will be removed from the queue.  If the job is sleeping,
 	 * it will be discarded without having a chance to resume and its sleeping state
@@ -162,6 +187,16 @@ public abstract class Job extends InternalJob {
 		return super.getState();
 	}
 	/**
+	 * Removes a child job from this job.  Has no effect if the job is not already a child
+	 * of this job.
+	 * 
+	 * @param job the child job to remove
+	 * @see addChild
+	 */
+	public void removeChild(Job job) {
+		super.removeChild(job);
+	}
+	/**
 	 * Executes the current job.  Returns the result of the execution.
 	 * 
 	 * The provided monitor can be used to report progress and respond to 
@@ -170,6 +205,9 @@ public abstract class Job extends InternalJob {
 	 * 
 	 * Once a job is stopped, it will not be asked to run again unless explicitly
 	 * rescheduled.
+	 * 
+	 * @param monitor the monitor to be used for reporting progress, or null
+	 * if progress monitoring is not required.
 	 * @return the job result.
 	 */
 	public abstract IStatus run(IProgressMonitor monitor);
@@ -185,8 +223,35 @@ public abstract class Job extends InternalJob {
 		super.setPriority(i);
 	}
 	/**
+	 * Schedules this job to be run.  The job is added to a queue of waiting
+	 * jobs, and will be run when it arrives at the beginning of the queue.
+	 * No guarantee is made about the ordering of this job relative to other
+	 * scheduled jobs.
+	 * <p>
+	 * This is a convenience method, fully equivalent to 
+	 * <code>schedule(0L)</code>.
+	 * </p>
+	 * 
+	 * @param job the job to add to the queue
+	 */
+	public final void schedule() {
+		super.schedule(0L);
+	}
+
+	/**
+	 * Schedules this job to be run after a specified delay.  After the specified delay,
+	 * the job is added to a queue of waiting jobs, and will be run when it arrives at the 
+	 * beginning of the queue.
+	 * 
+	 * @param job the job to add to the queue
+	 */
+	public final void schedule(long delay) {
+		super.schedule(delay);
+	}
+
+	/**
 	 * Returns true if the job should be run, and false otherwise.
-	 * If false is returned, this job will be discard by the job manager
+	 * If false is returned, this job will be discarded by the job manager
 	 * and never be run (unless explictly rescheduled).
 	 * 
 	 * <p>This method will be called immediately prior to calling the job's

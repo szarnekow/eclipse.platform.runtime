@@ -12,6 +12,27 @@ package org.eclipse.core.runtime.jobs;
 
 import org.eclipse.core.runtime.IProgressMonitor;
 
+/**
+ * The job manager provides facilities for scheduling, querying, and maintaining jobs
+ * and locks.  In particular, the job manager provides the following services:
+ * <ul>
+ * <li>Maintains a queue of jobs that are waiting to be run.  Items can be added to
+ * the queue using the <code>schedule</code> method.</li>
+ * <li>Allows manipulation of groups of jobs called job families.  Job families can
+ * be canceled, put to sleep, or woken up atomically.  There is also a mechanism
+ * for querying the set of known jobs in a given family.</li>
+ * <li>Allows listeners to find out about progress on running jobs, and to find out
+ * when jobs have changed states.</li>
+ * <li>Provides a factory for creating lock objects.  Lock objects are smart monitors
+ * that have strategies for avoiding deadlock.</li>
+ * <li>Provide feedback to a client that is waiting for a given job or family of jobs
+ * to complete.</li>
+ * </ul>
+ * 
+ * @see Job
+ * @see Lock
+ * @since 3.0
+ */
 public interface IJobManager {
 	/**
 	 * Registers a job listener with the job manager.  
@@ -28,20 +49,30 @@ public interface IJobManager {
 	 */
 	public void addProgressListener(IProgressListener listener);
 	/**
+	 * Stops all jobs in the given job family.  Jobs in the family that are currently waiting
+	 * will be removed from the queue.  Sleeping jobs will be discarded without having 
+	 * a chance to wake up.  Currently executing jobs will be asked to cancel but there 
+	 * is no guarantee that they will do so.
+	 * 
+	 * @param family the name of the job family to cancel
+	 * @see Job#belongsTo(String)
+	 */
+	public void cancel(String family);
+	/**
 	 * Returns the job that is currently running in this thread, or null if there
 	 * is no currently running job.
-	 * @param listener
 	 */
 	public Job currentJob();
 	/**
-	 * Creates a new job family.
+	 * Returns all waiting, executing and sleeping jobs belonging
+	 * to the given family. 
 	 * 
-	 * @param priority the priority for all jobs in this family
-	 * @param exclusive <code>true</code> if this family only allows one job
-	 * to run at once, and <code>false</code> otherwise.
-	 * @return the new job family
+	 * If no jobs are found, an empty array is returned.
+	 * 
+	 * @param family the name of the job family to find
+	 * @see Job#belongsTo(String)
 	 */
-	public IJobFamily newJobFamily(int priority, boolean exclusive);
+	public Job[] find(String family);
 	/**
 	 * Creates a new lock object.  All lock objects supplied by the job manager
 	 * know about each other and will always avoid circular deadlock amongst
@@ -67,39 +98,37 @@ public interface IJobManager {
 	public void removeProgressListener(IProgressListener listener);
 
 	/**
-	 * Adds the given job to the queue of waiting jobs. This method
-	 * will return before the given job has had a chance to run.
+	 * Requests that all jobs in the given job family be suspended.  Jobs currently 
+	 * waiting to be run will be removed from the queue and moved into the 
+	 * <code>SLEEPING</code> state.  Jobs that have been put to sleep
+	 * will remain in that state until either resumed or canceled.  This method has
+	 * no effect on jobs that are not currently waiting to be run.
 	 * 
-	 * @param job the job to add to the queue
-	 */
-	public void schedule(Job job);
-	/**
-	 * Adds the given job to the queue of waiting jobs after a delay has elapsed. 
-	 * This method will return before the given job has had a chance to run.
+	 * Sleeping jobs can be resumed using <code>wakeUp</code>.
 	 * 
-	 * @param job the job to add to the queue
-	 * @param delay a delay in milliseconds before the job should be added to the
-	 * queue of waiting jobs
+	 * @param family the name of the job family to put to sleep
+	 * @see Job#belongsTo(String)
 	 */
-	public void schedule(Job job, long delay);
-	/**
-	 * Adds the given job to the queue of waiting jobs. This method
-	 * will return before the given job has had a chance to run. The job will be 
-	 * associated with the given family until the job has finished running or has 
-	 * been canceled.
-	 * 
-	 * @param job the job to add to the queue
-	 * @param family the family the job should be associated with for this run
-	 */
-	public void schedule(Job job, IJobFamily family);
+	public void sleep(String family);
 	/**
 	 * Waits until the given job is finished.  This method will block
 	 * the calling thread until the given job has finished executing.  
 	 * Feedback on how the wait is progressing is provided to the given 
-	 * progress monitor.
-	 * @param job
+	 * progress monitor.  If the provided job is not currently waiting, sleeping,
+	 * or running, this method returns immediately.
+	 * 
+	 * <p>
+	 * If calling thread has acquired any locks, the locks are released for the duration
+	 * of the wait.
+	 * </p>
+	 * 
+	 * @param job the job to wait for
+	 * @param monitor Progress monitor for reporting progress on how the
+	 * wait is progressing, or null if no progress monitoring is required.
+	 * @exception InterruptedException if this thread is interrupted while waiting
+	 * @see ILock
 	 */
-	public void wait(Job job, IProgressMonitor monitor);
+	public void wait(Job job, IProgressMonitor monitor) throws InterruptedException;
 	/**
 	 * Waits until all jobs of the given family are finished. 
 	 * If a family of <code>null</code> is specified, waits until all waiting
@@ -107,9 +136,26 @@ public interface IJobManager {
 	 * thread until all such jobs have finished executing.  Feedback on how 
 	 * the wait is progressing is provided to the given progress monitor.
 	 * 
-	 * Warning: this can result in starvation of the current thread if
+	 * <p>
+	 * If calling thread has acquired any locks, the locks are released for the duration
+	 * of the wait.
+	 * </p>
+	 * <p>
+	 * Warning: this method can result in starvation of the current thread if
 	 * another thread continues to add jobs of the given family.
-	 * @param job
+	 * </p>
+	 * 
+	 * @param family the name of the job family to wait for
+	 * @param monitor Progress monitor for reporting progress on how the
+	 * wait is progressing, or null if no progress monitoring is required.
+	 * @exception InterruptedException if this thread is interrupted while waiting
+	 * @see Job#belongsTo(String)
 	 */
-	public void wait(String family, IProgressMonitor monitor);
+	public void wait(String family, IProgressMonitor monitor) throws InterruptedException;
+	/**
+	 * Resumes scheduling of all sleeping jobs in the given family.  This method
+	 * has no effect on jobs in the family that are not currently sleeping.
+	 */
+	public void wakeUp(String family);
+
 }
