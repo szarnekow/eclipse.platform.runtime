@@ -49,8 +49,7 @@ package org.eclipse.core.runtime.jobs;
 public interface ILock {
 	/**
 	 * Attempts to acquire this lock.  If the lock is in use and the specified delay is
-	 * greather than zero, the calling thread will block until all locks this thread already 
-	 * owns are simultaneously available, AND:
+	 * greater than zero, the calling thread will block until one of the following happens:
 	 * <ul>
 	 * <li>This lock is available</li>
 	 * <li>The thread is interrupted</li>
@@ -81,8 +80,8 @@ public interface ILock {
 	 */
 	public void acquire();
 	/**
-	 * Releases this lock. Releasing a lock the calling thread does not own will have
-	 * no effect.
+	 * Releases this lock. Locks must only be released by the thread that currently
+	 * owns the lock.
 	 */
 	public void release();
 }

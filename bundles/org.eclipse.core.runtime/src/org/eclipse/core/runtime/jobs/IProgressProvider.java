@@ -24,7 +24,8 @@ public interface IProgressProvider {
 	/**
 	 * Provides a new progress monitor instance to be used by the given job.
 	 * @param job the job to create a progress monitor for
-	 * @return a progress monitor, or null if no progress monitoring is needed.
+	 * @return a progress monitor, or <code>null</code> if no progress monitoring 
+	 * is needed.
 	 */
 	public IProgressMonitor createMonitor(Job job);
 }

@@ -13,8 +13,13 @@ package org.eclipse.core.runtime.jobs;
 import org.eclipse.core.runtime.IStatus;
 
 /**
- * Callback interface for clients interested in being notified of
- * the progress of jobs being managed by the job manager.
+ * Callback interface for clients interested in being notified when jobs change state.
+ * <p>
+ * A single job listener instance can be added either to the job manager, for notification
+ * of all scheduled jobs, or to any set of individual jobs.  A single listener instance should
+ * not be added to both the job manager, and to individual jobs (such a listener may
+ * receive duplicate notifications).
+ * </p>
  * 
  * @see JobAdapter
  * @see IJobManager#addJobListener(IJobListener)
@@ -25,9 +30,8 @@ import org.eclipse.core.runtime.IStatus;
  */
 public interface IJobListener {
 	/**
-	 * Notification that a job is about to be run.
-	 * Listeners are allowed to sleep, cancel, or change the priority of the 
-	 * job before it is started (and as a result may prevent
+	 * Notification that a job is about to be run. Listeners are allowed to sleep, cancel, 
+	 * or change the priority of the job before it is started (and as a result may prevent
 	 * the run from actually occurring).
 	 * 
 	 * @param job the job that is about to be run.
@@ -42,7 +46,8 @@ public interface IJobListener {
 	public void awake(Job job);
 	/**
 	 * Notification that a job has completed execution, either due to cancelation, successful
-	 * completion, or failure.  The supplied status object indicates the reason for failure.
+	 * completion, or failure.  The supplied status object indicates how the job finished,
+	 * and the reason for failure, if applicable.
 	 * 
 	 * @param job the job that has stopped.
 	 * @param result the result from the job's <code>run</code>

@@ -10,7 +10,7 @@
 package org.eclipse.core.runtime.jobs;
 
 /**
- * The job manager lock listener is notified whenever a thread is about to wait
+ * A lock listener is notified whenever a thread is about to wait
  * on a lock, and when a thread is about to release a lock.
  * <p>
  * This interface is for internal use by the platform-related plug-ins.

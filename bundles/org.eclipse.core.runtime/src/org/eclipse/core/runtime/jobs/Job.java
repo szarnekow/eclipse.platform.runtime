@@ -17,8 +17,8 @@ import org.eclipse.core.runtime.IStatus;
 
 /**
  * Jobs are units of runnable work that can be scheduled to be run with the job
- * manager.  The same job instance can be scheduled to run several times, although
- * rescheduling a job instance that is already waiting will move it to the back of the queue.
+ * manager.  Once a job has completed, it can be scheduled to run again (jobs are
+ * reusable).
  * 
  * Jobs have a state that indicates what they are currently doing.  When constructed,
  * jobs start with a state value of <code>NONE</code>.  When a job is scheduled
@@ -29,8 +29,9 @@ import org.eclipse.core.runtime.IStatus;
  * 
  * A job can also be in the <code>SLEEPING</code> state.  This happens if a user
  * calls Job.sleep() on a waiting job, or if a job is scheduled to run after a specified
- * delay.  Sleeping jobs can be woken at any time using Job.wakeUp(), which will
- * schedule the job for execution.  A running job cannot be put to sleep.
+ * delay.  Only jobs in the <code>WAITING</code> state can be put to sleep.  
+ * Sleeping jobs can be woken at any time using Job.wakeUp(), which will put the
+ * job back into the <code>WAITING</code> state.
  * 
  * Jobs can be assigned a priority that is used as a hint about how the job should
  * be scheduled.  There is no guarantee that jobs of one priority will be run before
@@ -50,6 +51,37 @@ public abstract class Job extends InternalJob {
 	 */
 	public static final IStatus ASYNC_FINISH = new Status(IStatus.OK, Platform.PI_RUNTIME, 1, "", null);//$NON-NLS-1$
 
+	/* Job priorities */
+	/** 
+	 * Job priority constant (value 10) for interactive jobs.
+	 * Interactive jobs generally have priority over all other jobs.
+	 * Interactive jobs must be relatively fast running in order to avoid
+	 * blocking other interactive jobs from running.
+	 * 
+	 * @see IJobManager#getPriority
+	 * @see IJobManager#setPriority
+	 * @see Job#run
+	 */
+	public static final int INTERACTIVE = 10;
+	/** 
+	 * Job priority constant (value 20) for short background jobs.
+	 * Short background jobs are jobs that typically complete within a second,
+	 * but may take longer in some cases.  Short jobs are given priority
+	 * over all other jobs except interactive jobs.
+	 * 
+	 * @see IJobManager#getPriority
+	 * @see IJobManager#setPriority
+	 * @see Job#run
+	 */
+	public static final int SHORT = 20;
+	/** 
+	 * Job priority constant (value 30) for long-running background jobs.
+	 * 
+	 * see IJobManager#getPriority
+	 * @see IJobManager#setPriority
+	 * @see Job#run
+	 */
+	public static final int LONG = 30;
 	/** 
 	 * Job priority constant (value 40) for build jobs.  Build jobs are
 	 * generally run after all other background jobs complete.
@@ -71,54 +103,14 @@ public abstract class Job extends InternalJob {
 	 * @see Job#run
 	 */
 	public static final int DECORATE = 50;
-	/* Job priorities */
 	/** 
-	 * Job priority constant (value 10) for interactive jobs.
-	 * Interactive jobs generally have priority over all other jobs.
-	 * Interactive jobs must be relatively fast running in order to avoid
-	 * blocking other interactive jobs from running.
-	 * 
-	 * @see IJobManager#getPriority
-	 * @see IJobManager#setPriority
-	 * @see Job#run
-	 */
-	public static final int INTERACTIVE = 10;
-	/** 
-	 * Job priority constant (value 30) for long-running background jobs.
-	 * 
-	 * see IJobManager#getPriority
-	 * @see IJobManager#setPriority
-	 * @see Job#run
-	 */
-	public static final int LONG = 30;
-
-	/** 
-	 * Job state code (value 4) indicating that a job is not 
+	 * Job state code (value -1) indicating that a job is not 
 	 * currently sleeping, waiting, or running (i.e., the job manager doesn't know 
 	 * anything about the job). 
 	 * 
 	 * @see IJobManager#getState
 	 */
 	public static final int NONE = -1;
-
-	/** 
-	 * Job state code (value 5) indicating that a job is currently running
-	 * 
-	 * @see IJobManager#getState
-	 */
-	public static final int RUNNING = 3;
-	/** 
-	 * Job priority constant (value 20) for short background jobs.
-	 * Short background jobs are jobs that typically complete within a second,
-	 * but may take longer in some cases.  Short jobs are given priority
-	 * over all other jobs except interactive jobs.
-	 * 
-	 * @see IJobManager#getPriority
-	 * @see IJobManager#setPriority
-	 * @see Job#run
-	 */
-	public static final int SHORT = 20;
-
 	/** 
 	 * Job state code (value 3) indicating that a job is sleeping.
 	 * 
@@ -126,13 +118,18 @@ public abstract class Job extends InternalJob {
 	 * @see IJobManager#getState
 	 */
 	public static final int SLEEPING = 1;
-
 	/** 
 	 * Job state code (value 4) indicating that a job is waiting to be run.
 	 * 
 	 * @see IJobManager#getState
 	 */
 	public static final int WAITING = 2;
+	/** 
+	 * Job state code (value 3) indicating that a job is currently running
+	 * 
+	 * @see IJobManager#getState
+	 */
+	public static final int RUNNING = 3;
 
 	/**
 	 * Registers a job listener with this job
@@ -165,8 +162,8 @@ public abstract class Job extends InternalJob {
 	 * will be cleared.  If the job is currently executing, it will be asked to
 	 * stop but there is no guarantee that it will do so.
 	 * 
-	 * @return false if the job is currently running (and thus may not
-	 * respond to cancelation), and true in all other cases.
+	 * @return <code>false</code> if the job is currently running (and thus may not
+	 * respond to cancelation), and <code>true</code> in all other cases.
 	 */
 	public final boolean cancel() {
 		return super.cancel();
@@ -193,10 +190,10 @@ public abstract class Job extends InternalJob {
 		return super.getPriority();
 	}
 	/**
-	 * Returns the scheduling rule for this job.  Returns null if this job has no
+	 * Returns the scheduling rule for this job.  Returns <code>null</code> if this job has no
 	 * scheduling rule.
 	 * 
-	 * @return the scheduling rule for this job
+	 * @return the scheduling rule for this job, or <code>null</code>.
 	 * @see ISchedulingRule
 	 */
 	public final ISchedulingRule getRule() {
@@ -236,8 +233,8 @@ public abstract class Job extends InternalJob {
 	 * asynchronously <b>must</b> indicate when they are finished by calling
 	 * the method <code>Job.finished</code>.
 	 * 
-	 * @param monitor the monitor to be used for reporting progress, or null
-	 * if progress monitoring is not required.
+	 * @param monitor the monitor to be used for reporting progress, or <code>
+	 * null</code> if progress monitoring is not required.
 	 * @return the job result.
 	 * @see #ASYNC_FINISH
 	 * @see #finish
@@ -258,7 +255,6 @@ public abstract class Job extends InternalJob {
 	public final void schedule() {
 		super.schedule(0L);
 	}
-
 	/**
 	 * Schedules this job to be run after a specified delay.  After the specified delay,
 	 * the job is added to a queue of waiting jobs, and will be run when it arrives at the 
@@ -290,15 +286,14 @@ public abstract class Job extends InternalJob {
 	public final void setRule(ISchedulingRule rule) {
 		super.setRule(rule);
 	}
-
 	/**
-	 * Returns true if the job should be run, and false otherwise.
-	 * If false is returned, this job will be discarded by the job manager
-	 * and never be run (unless explictly rescheduled).
+	 * Returns whether this job should be run.
+	 * If <code>false</code> is returned, this job will be discarded by the job manager
+	 * without running.
 	 * 
-	 * <p>This method will be called immediately prior to calling the job's
+	 * <p>This method is called immediately prior to calling the job's
 	 * run method, so it can be used for last minute pre-condition checking before
-	 * a job is run.  </p>
+	 * a job is run.</p>
 	 * 
 	 * <p>Clients may override this method.  This default implementation always returns
 	 * <code>true</code>.

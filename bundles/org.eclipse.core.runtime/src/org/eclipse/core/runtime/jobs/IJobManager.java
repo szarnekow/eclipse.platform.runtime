@@ -117,15 +117,16 @@ public interface IJobManager {
 	 */
 	public void sleep(String family);
 	/**
-	 * Waits until the given job is finished.  This method will block
-	 * the calling thread until the given job has finished executing.  
-	 * Feedback on how the wait is progressing is provided to the given 
-	 * progress monitor.  If the provided job is not currently waiting, sleeping,
+	 * Waits until a job is finished.  This method will block the calling thread until the 
+	 * job has finished executing.  Feedback on how the wait is progressing is provided 
+	 * to a progress monitor.  If the job is not currently waiting, sleeping,
 	 * or running, this method returns immediately.
 	 * 
 	 * <p>
-	 * If calling thread has acquired any locks, the locks are released for the duration
-	 * of the wait.
+	 * If the calling thread owns any locks, the locks may be released during the
+	 * wait if necessary to prevent deadlock.  On return from the wait, the calling
+	 * thread will once again have exclusive control of any locks that were owned
+	 * upon entering the wait.
 	 * </p>
 	 * 
 	 * @param job the job to wait for
@@ -143,8 +144,10 @@ public interface IJobManager {
 	 * the wait is progressing is provided to the given progress monitor.
 	 * 
 	 * <p>
-	 * If calling thread has acquired any locks, the locks are released for the duration
-	 * of the wait.
+	 * If the calling thread owns any locks, the locks may be released during the
+	 * wait if necessary to prevent deadlock.  On return from the wait, the calling
+	 * thread will once again have exclusive control of any locks that were owned
+	 * upon entering the wait.
 	 * </p>
 	 * <p>
 	 * Warning: this method can result in starvation of the current thread if
@@ -161,6 +164,7 @@ public interface IJobManager {
 	/**
 	 * Resumes scheduling of all sleeping jobs in the given family.  This method
 	 * has no effect on jobs in the family that are not currently sleeping.
+	 * @see Job#belongsTo(String)
 	 */
 	public void wakeUp(String family);
 
