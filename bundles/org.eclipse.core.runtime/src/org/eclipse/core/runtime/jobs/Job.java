@@ -243,8 +243,6 @@ public abstract class Job extends InternalJob {
 	/**
 	 * Schedules this job to be run.  The job is added to a queue of waiting
 	 * jobs, and will be run when it arrives at the beginning of the queue.
-	 * No guarantee is made about the ordering of this job relative to other
-	 * scheduled jobs.
 	 * <p>
 	 * This is a convenience method, fully equivalent to 
 	 * <code>schedule(0L)</code>.
@@ -258,7 +256,9 @@ public abstract class Job extends InternalJob {
 	/**
 	 * Schedules this job to be run after a specified delay.  After the specified delay,
 	 * the job is added to a queue of waiting jobs, and will be run when it arrives at the 
-	 * beginning of the queue.
+	 * beginning of the queue.	
+	 * <p>
+	 * Scheduling a job that is already waiting, sleeping, or running has no effect
 	 * 
 	 * @param job the job to add to the queue
 	 */
