@@ -66,28 +66,23 @@ public class JobManager implements IJobManager {
 	 */
 	private final PriorityQueue waiting = new PriorityQueue(10);
 
-	public static JobManager getInstance() {
+	public static synchronized JobManager getInstance() {
 		if (instance == null) {
-			//ensure we don't start two job managers
-			synchronized (JobManager.class) {
-				if (instance == null) {
-					instance = new JobManager();
-					instance.startup();
-				}
-			}
+			instance = new JobManager();
 		}
 		return instance;
 	}
-	/**
-	 * Shuts down the running job manager, if any.
-	 */
-	public static void shutdownIfRunning() {
-		if (instance != null) {
-			instance.shutdown();
-			instance = null;
-		}
+	public static synchronized void shutdown() {
+		if (instance != null)
+			instance.doShutdown();
+		instance = null;
 	}
+
 	private JobManager() {
+		synchronized (lock) {
+			running = true;
+			pool = new WorkerPool(this);
+		}
 	}
 	/* (non-Javadoc)
 	 * @see org.eclipse.core.runtime.jobs.IJobManager#addListener(org.eclipse.core.runtime.jobs.IJobListener)
@@ -157,6 +152,23 @@ public class JobManager implements IJobManager {
 				Assert.isTrue(false, "Job has invalid priority: " + priority); //$NON-NLS-1$
 				return 0;
 		}
+	}
+	/**
+	 * Shuts down the job manager.  Currently running jobs will be told
+	 * to stop, but worker threads may still continue processing.
+	 */
+	private void doShutdown() {
+		synchronized (lock) {
+			running = false;
+			//clean up
+			sleeping.clear();
+			waiting.clear();
+			//discard all jobs (progress callbacks from running jobs
+			//will now think the jobs are canceled, and should terminate
+			//in a timely fashion)
+			allJobs.clear();
+		}
+		pool.shutdown();
 	}
 	/**
 	 * Returns the next job to be run.  If no jobs are waiting to run,
@@ -239,7 +251,7 @@ public class JobManager implements IJobManager {
 	/* (non-Javadoc)
 	 * @see org.eclipse.core.runtime.jobs.Job#schedule(long)
 	 */
-	public void schedule(InternalJob job, long delay) {
+	protected void schedule(InternalJob job, long delay) {
 		Assert.isNotNull(job, "Job is null"); //$NON-NLS-1$
 		synchronized (lock) {
 			allJobs.add(job);
@@ -289,28 +301,6 @@ public class JobManager implements IJobManager {
 		}
 	}
 	/**
-	 * Shuts down the job manager.  Currently running jobs will be told
-	 * to stop, but worker threads may still continue processing.
-	 */
-	private void shutdown() {
-		synchronized (lock) {
-			running = false;
-			//clean up
-			sleeping.clear();
-			waiting.clear();
-			//discard all jobs (progress callbacks from running jobs
-			//will now think the jobs are canceled, and should terminate
-			//in a timely fashion)
-			allJobs.clear();
-		}
-		pool.shutdown();
-	}
-	/* (non-Javadoc)
-	 * @see IJobManager#sleep(String)
-	 */
-	public void sleep(String family) {
-	}
-	/**
 	 * Puts a job to sleep. Returns true if the job was successfully put to sleep.
 	 */
 	boolean sleep(InternalJob job) {
@@ -337,6 +327,11 @@ public class JobManager implements IJobManager {
 			listeners[i].sleeping((Job) job);
 		}
 		return true;
+	}
+	/* (non-Javadoc)
+	 * @see IJobManager#sleep(String)
+	 */
+	public void sleep(String family) {
 	}
 	/**
 	 * Returns the estimated time in milliseconds before the next job is scheduled
@@ -386,15 +381,6 @@ public class JobManager implements IJobManager {
 		}
 	}
 
-	/**
-	 * Starts the job manager, with the given number of worker threads.
-	 */
-	private void startup() {
-		synchronized (lock) {
-			running = true;
-			pool = new WorkerPool(this);
-		}
-	}
 	/* (non-Javadoc)
 	 * @see org.eclipse.core.runtime.jobs.IJobManager#wait(org.eclipse.core.runtime.jobs.Job, org.eclipse.core.runtime.IProgressMonitor)
 	 */
@@ -404,11 +390,6 @@ public class JobManager implements IJobManager {
 	 * @see org.eclipse.core.runtime.jobs.IJobManager#wait(java.lang.String, org.eclipse.core.runtime.IProgressMonitor)
 	 */
 	public void wait(String family, IProgressMonitor monitor) {
-	}
-	/* (non-Javadoc)
-	 * @see IJobFamily#wakeUp(String)
-	 */
-	public void wakeUp(String family) {
 	}
 	/**
 	 * Implementation of wakeUp()
@@ -427,5 +408,10 @@ public class JobManager implements IJobManager {
 		for (int i = 0; i < listeners.length; i++) {
 			listeners[i].awake((Job) job);
 		}
+	}
+	/* (non-Javadoc)
+	 * @see IJobFamily#wakeUp(String)
+	 */
+	public void wakeUp(String family) {
 	}
 }

@@ -28,6 +28,7 @@ import org.eclipse.core.runtime.model.*;
  */
 public final class InternalPlatform {
 	private static IAdapterManager adapterManager;
+	private static JobManager jobManager;
 	private static PluginRegistry registry;
 	// registry index - used to store last modified times for
 	// registry caching
@@ -74,7 +75,7 @@ public final class InternalPlatform {
 	// default plugin data
 	private static final String PI_XML = "org.apache.xerces"; //$NON-NLS-1$
 	private static final String PLUGINSDIR = "plugins/"; //$NON-NLS-1$
-	private static final String XML_LOCATION = "plugins/" + PI_XML + "/"; //$NON-NLS-1$ //$NON-NLS-2$
+	private static final String XML_LOCATION = PLUGINSDIR + PI_XML + "/"; //$NON-NLS-1$ //$NON-NLS-2$
 	
 	// execution options
 	private static final String OPTION_DEBUG = Platform.PI_RUNTIME + "/debug"; //$NON-NLS-1$
@@ -354,7 +355,7 @@ public static int getIntegerOption(String option, int defaultValue) {
 	}
 }
 public static IJobManager getJobManager() {
-	return JobManager.getInstance();
+	return jobManager;
 }
 /**
  * @see Platform#getLocation
@@ -522,7 +523,7 @@ public static IPlatformRunnable loaderGetRunnable(String pluginId, String classN
 public static void loaderShutdown() {
 	assertInitialized();
 	//shutdown all running jobs
-	JobManager.shutdownIfRunning();
+	JobManager.shutdown();
 	writeVersion();
 	registry.shutdown(null);
 	clearLockFile();
@@ -576,6 +577,7 @@ public static void loaderStartup(URL[] pluginPath, String locationString, Proper
 	setupMetaArea(locationString);
 	createLockFile();
 	adapterManager = new AdapterManager();
+	jobManager = JobManager.getInstance();
 	loadOptions(bootOptions);
 	createXMLClassLoader();
 	MultiStatus problems = loadRegistry(pluginPath);
