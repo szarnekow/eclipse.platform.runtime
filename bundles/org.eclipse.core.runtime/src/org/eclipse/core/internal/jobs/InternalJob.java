@@ -42,6 +42,7 @@ public abstract class InternalJob {
 	}
 	public void resume() {
 		paused = false;
+		//todo implement resume
 	}
 	public void setFamily(IJobFamily family) {
 		this.family = family;

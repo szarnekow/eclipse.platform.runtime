@@ -19,34 +19,35 @@ import org.eclipse.core.runtime.jobs.*;
 
 public class JobManager implements IJobManager {
 	private static JobManager instance;
-	private final ProgressHandler progressHandler = new ProgressHandler(this);
-	private final List listeners = Collections.synchronizedList(new ArrayList());
-	
 	/**
-	 * The pool of worker threads.
+	 * Set of all jobs.
 	 */
-	private WorkerPool pool;
+	private final Set allJobs = new HashSet();
+	private final List listeners = Collections.synchronizedList(new ArrayList());
 	/**
 	 * The lock for synchronizing all activity in the job manager.  To avoid deadlock,
 	 * this lock must never be held for extended periods, and must never be
 	 * held while third party code is being called.
 	 */
 	private final Object lock = new Object();
-	
-	/**
-	 * jobs that are waiting to be run
-	 */
-	private final Queue waiting = new Queue();
-	/**
-	 * Set of all jobs.
-	 */
-	private final Set allJobs = new HashSet();
 	/**
 	 * Paused jobs that have arrived at the front of the queue.
 	 */
 	private final HashSet paused = new HashSet();
-	
+
+	/**
+	 * The pool of worker threads.
+	 */
+	private WorkerPool pool;
+
+	private final ProgressHandler progressHandler = new ProgressHandler(this);
+
 	private boolean running = false;
+
+	/**
+	 * jobs that are waiting to be run
+	 */
+	private final Queue waiting = new Queue();
 
 	public static JobManager getInstance() {
 		if (instance == null) {
@@ -92,7 +93,7 @@ public class JobManager implements IJobManager {
 				return true;
 			wasWaiting = waiting.contains(job);
 			oldState = job.getState();
-			((InternalJob)job).setState(Job.NONE);
+			((InternalJob) job).setState(Job.NONE);
 		}
 		//only notify listeners if the job was waiting
 		//(if the job is already running, then we notify when it finishes its run method)
@@ -113,7 +114,7 @@ public class JobManager implements IJobManager {
 	public Job currentJob() {
 		Thread current = Thread.currentThread();
 		if (current instanceof Worker)
-			return ((Worker)current).currentJob();
+			return ((Worker) current).currentJob();
 		return null;
 	}
 
@@ -125,7 +126,7 @@ public class JobManager implements IJobManager {
 	 */
 	void endJob(Job job, IStatus result) {
 		synchronized (lock) {
-			((InternalJob)job).setState(Job.NONE);
+			((InternalJob) job).setState(Job.NONE);
 			allJobs.remove(job);
 		}
 		//notify listeners outside sync block
@@ -150,6 +151,25 @@ public class JobManager implements IJobManager {
 		return progressHandler;
 	}
 	/**
+	 * Removes and returns the first waiting job in the queue. If the queue is empty,
+	 * this method blocks until a job becomes available.  Returns null only if
+	 * the job manager has been shutdown.
+	 */
+	private Job nextJob() {
+		synchronized (lock) {
+			if (!running)
+				return null;
+			//spin until we find a valid job or queue is empty
+			while (true) {
+				Job job = (Job) waiting.dequeue();
+				if (job == null)
+					return null;
+				if (prepareToRun(job))
+					return job;
+			}
+		}
+	}
+	/**
 	 * Request to pause the given job. Return true if the job was successfully paused.
 	 * @param job
 	 */
@@ -159,13 +179,39 @@ public class JobManager implements IJobManager {
 			if (job.getState() == Job.RUNNING)
 				return false;
 			job.setState(Job.PAUSED);
-			return true;
 		}
+		IJobListener[] listeners = getJobListeners();
+		for (int i = 0; i < listeners.length; i++) {
+			listeners[i].paused((Job)job);
+		}
+		return true;
 	}
 	/* (non-Javadoc)
 	 * @see org.eclipse.core.runtime.jobs.IJobManager#pause(java.lang.String)
 	 */
 	public void pause(String family) {
+	}
+	/**
+	 * If the given job is ready to be run, make sure the state is RUNNING and
+	 * return true.  If the job cannot be run, handle it appropriately and return false.
+	 */
+	private boolean prepareToRun(Job job) {
+		if (job == null)
+			return false;
+		synchronized (lock) {
+			switch (job.getState()) {
+				case Job.WAITING :
+					 ((InternalJob) job).setState(Job.RUNNING);
+					return true;
+				case Job.RUNNING :
+					return true;
+				case Job.PAUSED :
+					paused.add(job);
+				case Job.CANCELED :
+				default :
+					return false;
+			}
+		}
 	}
 	/* (non-Javadoc)
 	 * @see org.eclipse.core.runtime.jobs.IJobManager#removeListener(org.eclipse.core.runtime.jobs.IJobListener)
@@ -194,7 +240,7 @@ public class JobManager implements IJobManager {
 	 * @see org.eclipse.core.runtime.jobs.IJobManager#schedule(Job, JobFamily)
 	 */
 	public void schedule(Job job, IJobFamily family) {
-		((InternalJob)job).setFamily(family);
+		((InternalJob) job).setFamily(family);
 		schedule(job);
 	}
 	/* (non-Javadoc)
@@ -208,7 +254,7 @@ public class JobManager implements IJobManager {
 			listeners[i].aboutToSchedule(job);
 		}
 		synchronized (lock) {
-			InternalJob internalJob = (InternalJob)job;
+			InternalJob internalJob = (InternalJob) job;
 			int state = internalJob.getState();
 			//job may have been canceled by a listener
 			if (state == Job.CANCELED) {
@@ -259,36 +305,24 @@ public class JobManager implements IJobManager {
 				job.cancel();
 				continue;
 			}
-			//todo check listeners for veto
+			//check for listener veto
+			IJobListener[] listeners = getJobListeners();
+			for (int i = 0; i < listeners.length; i++) {
+				listeners[i].aboutToRun(job);
+			}
+			if (!prepareToRun(job))
+				continue;
+			//get the listeners again because they may have been changed
+			listeners = getJobListeners();
+			for (int i = 0; i < listeners.length; i++) {
+				listeners[i].running(job);
+			}
+			if (!prepareToRun(job))
+				continue;
 			return job;
 		}
 	}
-	/**
-	 * Removes and returns the first waiting job in the queue. If the queue is empty,
-	 * this method blocks until a job becomes available.  Returns null only if
-	 * the job manager has been shutdown.
-	 */
-	private Job nextJob() {
-		synchronized (lock) {
-			if (!running)
-				return null;
-			//spin until we find a valid job or queue is empty
-			while (true) {
-				Job job = (Job)waiting.dequeue();
-				if (job == null)
-					return null;
-				if (job.getState() == Job.WAITING) {
-					((InternalJob)job).setState(Job.RUNNING);
-					return job;
-				}
-				if (job.getState() == Job.PAUSED) {
-					//if job is paused, add it to the list of paused jobs
-					paused.add(job);
-				}
-				//otherwise job is canceled, so just discard it
-			}
-		}
-	}
+
 	/**
 	 * Starts the job manager, with the given number of worker threads.
 	 */
