@@ -114,6 +114,34 @@
     </ant>
   </target>
 
+  <target name="FileModificationValidator_SessionTests" depends="init,cleanup">
+    <ant target="core-test" antfile="${library-file}" dir="${eclipse-home}">
+      <property name="data-dir" value="${location}"/>
+      <property name="plugin-name" value="org.eclipse.core.tests.resources.validator"/>
+      <property name="classname" value="org.eclipse.core.tests.resources.validator.ValidatorTest0"/>
+    </ant>
+    <ant target="core-test" antfile="${library-file}" dir="${eclipse-home}">
+      <property name="data-dir" value="${location}"/>
+      <property name="plugin-name" value="org.eclipse.core.tests.resources.validator"/>
+      <property name="classname" value="org.eclipse.core.tests.resources.validator.ValidatorTest1a"/>
+    </ant>
+    <ant target="core-test" antfile="${library-file}" dir="${eclipse-home}">
+      <property name="data-dir" value="${location}"/>
+      <property name="plugin-name" value="org.eclipse.core.tests.resources.validator"/>
+      <property name="classname" value="org.eclipse.core.tests.resources.validator.ValidatorTest1b"/>
+    </ant>
+    <ant target="core-test" antfile="${library-file}" dir="${eclipse-home}">
+      <property name="data-dir" value="${location}"/>
+      <property name="plugin-name" value="org.eclipse.core.tests.resources.validator"/>
+      <property name="classname" value="org.eclipse.core.tests.resources.validator.ValidatorTest1c"/>
+    </ant>
+    <ant target="core-test" antfile="${library-file}" dir="${eclipse-home}">
+      <property name="data-dir" value="${location}"/>
+      <property name="plugin-name" value="org.eclipse.core.tests.resources.validator"/>
+      <property name="classname" value="org.eclipse.core.tests.resources.validator.ValidatorTest2"/>
+    </ant>
+  </target>
+
   <target name="RuntimeTests" depends="init,cleanup">
     <ant target="core-test" antfile="${library-file}" dir="${eclipse-home}">
       <property name="data-dir" value="${location}"/>
@@ -123,6 +151,6 @@
   </target>
 
   <!-- This target defines the tests that need to be run. -->
-  <target name="suite" depends="ResourcesTests,RuntimeTests,PR_1G1N9GZ_SessionTests,PR_1GALH44_SessionTests,Snapshot_SessionTests,SaveManager_SessionTests">
+  <target name="suite" depends="ResourcesTests,RuntimeTests,PR_1G1N9GZ_SessionTests,PR_1GALH44_SessionTests,Snapshot_SessionTests,SaveManager_SessionTests,FileModificationValidator_SessionTests">
   </target>
  </project>
