@@ -13,14 +13,11 @@ package org.eclipse.core.internal.jobs;
 import org.eclipse.core.runtime.jobs.Job;
 
 public class Worker extends Thread {
-	private final JobManager jobManager;
+	private final WorkerPool pool;
 	private volatile Job currentJob;
-	/**
-	 *
-	 */
-	public Worker(JobManager manager) {
-		super();
-		this.jobManager = manager;
+	
+	public Worker(WorkerPool pool) {
+		this.pool = pool;
 	}
 	/**
 	 * Returns the currently running job, or null if none.
@@ -32,13 +29,12 @@ public class Worker extends Thread {
 	 * @see java.lang.Runnable#run()
 	 */
 	public void run() {
-		while (true) {
-			currentJob = jobManager.startJob();
+		while ((currentJob = pool.startJob()) != null) {
 			//if job is null we've been shutdown
 			if (currentJob == null)
 				return;
-			int result = currentJob.run(jobManager.getProgressHandler());
-			jobManager.endJob(currentJob, result);
+			int result = currentJob.run(pool.getProgressHandler());
+			pool.endJob(currentJob, result);
 			currentJob = null;
 		}
 	}

@@ -23,6 +23,10 @@ public class JobManager implements IJobManager {
 	private final List listeners = Collections.synchronizedList(new ArrayList());
 	
 	/**
+	 * The pool of worker threads.
+	 */
+	private WorkerPool pool;
+	/**
 	 * The lock for synchronizing all activity in the job manager.  To avoid deadlock,
 	 * this lock must never be held for extended periods, and must never be
 	 * held while third party code is being called.
@@ -41,10 +45,6 @@ public class JobManager implements IJobManager {
 	 * Paused jobs that have arrived at the front of the queue.
 	 */
 	private final HashSet paused = new HashSet();
-	/**
-	 * The registered worker threads.
-	 */
-	private final ArrayList workers = new ArrayList();
 	
 	private boolean running = false;
 
@@ -54,7 +54,7 @@ public class JobManager implements IJobManager {
 			synchronized (JobManager.class) {
 				if (instance == null) {
 					instance = new JobManager();
-					instance.startup(4);
+					instance.startup();
 				}
 			}
 		}
@@ -65,7 +65,7 @@ public class JobManager implements IJobManager {
 	 */
 	public static void shutdownIfRunning() {
 		if (instance != null)
-			instance.doShutdown();
+			instance.shutdown();
 	}
 	private JobManager() {
 	}
@@ -204,22 +204,33 @@ public class JobManager implements IJobManager {
 			listeners[i].aboutToSchedule(job);
 		}
 		synchronized (lock) {
-			((InternalJob)job).setState(Job.WAITING);
-			waiting.enqueue(job);
-			allJobs.add(job);
-			//wake up a worker thread that is waiting on the lock
-			lock.notify();
+			InternalJob internalJob = (InternalJob)job;
+			int state = internalJob.getState();
+			//job may have been canceled by a listener
+			if (state == Job.CANCELED) {
+				internalJob.setState(Job.NONE);
+				return;
+			}
+			//if job is already paused, add it to the list of paused jobs
+			if (state == Job.PAUSED) {
+				paused.add(internalJob);
+				return;
+			}
+			internalJob.setState(Job.WAITING);
+			allJobs.add(internalJob);
+			waiting.enqueue(internalJob);
+			pool.jobQueued(internalJob);
 		}
 	}
 	/**
 	 * Shuts down the job manager.  Currently running jobs will be told
 	 * to stop, but worker threads may still continue processing.
 	 */
-	private void doShutdown() {
+	private void shutdown() {
 		synchronized (lock) {
 			running = false;
 			//clean up
-			workers.clear();
+			pool.shutdown();
 			paused.clear();
 			waiting.clear();
 			//discard all jobs (progress callbacks from running jobs
@@ -231,11 +242,8 @@ public class JobManager implements IJobManager {
 		}
 	}
 	/**
-	 * Returns the next job to be run.  If no jobs are waiting to run,
-	 * this method will block until a job is available.  The worker must
-	 * call endJob when the job is finished running.  This method returns null
-	 * only if the job manager has been shut down.
-	 * @return
+	 * Returns the next job to be run, or null if no jobs are waiting to run.
+	 * The worker must call endJob when the job is finished running.  
 	 */
 	Job startJob() {
 		while (true) {
@@ -260,19 +268,13 @@ public class JobManager implements IJobManager {
 	 */
 	private Job nextJob() {
 		synchronized (lock) {
-			Job job = (Job)waiting.dequeue();
+			if (!running)
+				return null;
+			//spin until we find a valid job or queue is empty
 			while (true) {
-				while (job == null) {
-					//wait until a job is added to the queue
-					try {
-						lock.wait();
-					} catch (InterruptedException e) {
-					}
-					//we may have been woken up because of a shutdown
-					if (!running)
-						return null;
-					job = (Job)waiting.dequeue();
-				}
+				Job job = (Job)waiting.dequeue();
+				if (job == null)
+					return null;
 				if (job.getState() == Job.WAITING) {
 					return job;
 				}
@@ -287,15 +289,10 @@ public class JobManager implements IJobManager {
 	/**
 	 * Starts the job manager, with the given number of worker threads.
 	 */
-	private void startup(int workerCount) {
+	private void startup() {
 		synchronized (lock) {
 			running = true;
-			Assert.isLegal(workerCount > 0, "A manager must have workers");
-			for (int i = 0; i < workerCount; i++) {
-				Worker worker = new Worker(this);
-				workers.add(worker);
-				worker.start();
-			}
+			pool = new WorkerPool(this);
 		}
 	}
 	/* (non-Javadoc)
