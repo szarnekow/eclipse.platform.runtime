@@ -25,14 +25,14 @@ public class PlatformLogWriter implements ILogListener {
 	protected static final String XML_VERSION = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>";
 
 	protected static final String ATTRIBUTE_DATE = "date";
-	protected static final String ATTRIBUTE_SEVERITY = "severity";
-	protected static final String ATTRIBUTE_PLUGIN_ID = "plugin-id";
+	protected static final String ATTRIBUTE_SEVERITY = "sev";
+	protected static final String ATTRIBUTE_PLUGIN_ID = "id";
 	protected static final String ATTRIBUTE_CODE = "code";
-	protected static final String ATTRIBUTE_MESSAGE = "message";
+	protected static final String ATTRIBUTE_MESSAGE = "msg";
 	protected static final String ATTRIBUTE_TRACE = "trace";
 	
 	protected static final String ELEMENT_LOG = "log";
-	protected static final String ELEMENT_LOG_ENTRY = "log-entry";
+	protected static final String ELEMENT_LOG_ENTRY = "entry";
 	protected static final String ELEMENT_STATUS = "status";
 	protected static final String ELEMENT_EXCEPTION = "exception";
 
