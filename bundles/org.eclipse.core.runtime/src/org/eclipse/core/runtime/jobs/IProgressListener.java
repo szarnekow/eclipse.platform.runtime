@@ -44,5 +44,5 @@ public interface IProgressListener {
 	 * 
 	 * @see IProgressMonitor#worked
 	 */
-	public void worked(Job job, int work);
+	public void worked(Job job, double work);
 }

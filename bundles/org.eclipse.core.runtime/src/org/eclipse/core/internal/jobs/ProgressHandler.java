@@ -67,6 +67,11 @@ class ProgressHandler implements IProgressMonitor {
 	 * @see org.eclipse.core.runtime.IProgressMonitor#internalWorked(double)
 	 */
 	public void internalWorked(double work) {
+		Job job = jobForThread();
+		IProgressListener[] listeners = listeners();
+		for (int i = 0; i < listeners.length; i++) {
+			listeners[i].worked(job, work);
+		}
 	}
 	/* (non-Javadoc)
 	 * @see org.eclipse.core.runtime.IProgressMonitor#isCanceled()
@@ -119,10 +124,6 @@ class ProgressHandler implements IProgressMonitor {
 	 * @see org.eclipse.core.runtime.IProgressMonitor#worked(int)
 	 */
 	public void worked(int work) {
-		Job job = jobForThread();
-		IProgressListener[] listeners = listeners();
-		for (int i = 0; i < listeners.length; i++) {
-			listeners[i].worked(job, work);
-		}
+		internalWorked(work);
 	}
 }
