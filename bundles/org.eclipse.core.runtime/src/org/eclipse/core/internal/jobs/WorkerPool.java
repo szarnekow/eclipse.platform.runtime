@@ -66,17 +66,22 @@ class WorkerPool {
 			return;
 		}
 	}
-	protected void shutdown() {
+	protected synchronized void shutdown() {
 		running = false;
+		notifyAll();
 	}
 	/**
-	 * Sleep until expiry or until woken
+	 * Sleep for the given duration or until woken.
 	 */
-	private synchronized void sleep() {
+	private synchronized void sleep(long duration) {
 		sleepingThreads++;
+		if (JobManager.DEBUG)
+			System.out.println("[" + Thread.currentThread() + "] worker sleeping for: " + duration + "ms"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 		try {
-			wait(BEST_BEFORE);
+			wait(duration);
 		} catch (InterruptedException e) {
+			if (JobManager.DEBUG)
+				System.out.println("[" + Thread.currentThread() + "] worker interrupted while waiting... :-|"); //$NON-NLS-1$ //$NON-NLS-2$
 		} finally {
 			sleepingThreads--;
 		}
@@ -84,16 +89,20 @@ class WorkerPool {
 	/**
 	 * Returns a new job to run.  Returns null if the thread should die.
 	 */
-	protected Job startJob() {
+	protected synchronized Job startJob() {
 		//if we're above capacity, kill the thread
-		synchronized (this) {
-			if (!running || threads.size() > MAX_THREADS) {
-				return null;
-			}
+		if (!running || threads.size() > MAX_THREADS) {
+			return null;
 		}
 		Job job = manager.startJob();
-		if (job == null) {
-			sleep();
+		long sleepTime = 0;
+		//spin until a job is found or we've slept for too long
+		while (job == null && sleepTime < BEST_BEFORE) {
+			long hint = Math.min(manager.sleepHint(), BEST_BEFORE);
+			if (hint > 0) {
+				sleep(hint);
+				sleepTime += hint;
+			}
 			job = manager.startJob();
 		}
 		return job;

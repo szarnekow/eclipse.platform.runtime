@@ -58,23 +58,6 @@ public interface IJobFamily {
 	 * If no jobs are found, an empty array is returned.
 	 */
 	public Job[] members();
-	
-	/**
-	 * Requests that all jobs in this family be paused.
-	 * Jobs currently waiting to be run will be removed
-	 * from the queue.  This method has no effect for jobs that are
-	 * already running, paused, or finished execution.
-	 * 
-	 * Paused jobs can be resumed.
-	 */
-	public void pause();
-	/**
-	 * Resumes execution of all jobs in this family.  Only jobs
-	 * that are currently paused can be resumed.
-	 * If there are no paused jobs in the family, this request is ignored.
-	 * @param job
-	 */
-	public void resume();
 	/**
 	 * Sets the priority of this family.  This will not affect the execution of
 	 * jobs that are already running, but it will affect the scheduleding jobs that are
@@ -84,4 +67,21 @@ public interface IJobFamily {
 	 * INTERACTIVE, SHORT, LONG, BUILD, or DECORATE.
 	 */
 	public void setPriority(int i);
+
+	/**
+	 * Requests that all jobs in this family be paused.
+	 * Jobs currently waiting to be run will be removed
+	 * from the queue.  This method has no effect for jobs that are
+	 * already running, paused, or finished execution.
+	 * 
+	 * Paused jobs can be resumed.
+	 */
+	public void sleep();
+	/**
+	 * Resumes execution of all jobs in this family.  Only jobs
+	 * that are currently paused can be resumed.
+	 * If there are no paused jobs in the family, this request is ignored.
+	 * @param job
+	 */
+	public void wakeUp();
 }

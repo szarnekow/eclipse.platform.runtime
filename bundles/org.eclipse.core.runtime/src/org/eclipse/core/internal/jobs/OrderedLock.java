@@ -56,7 +56,7 @@ public class OrderedLock implements ILock {
 	}
 	/**
 	 * Acquires this lock.  Callers will block indefinitely
-	 * until this lock becomes available.
+	 * until the lock becomes available or this thread is interrupted. 
 	 */
 	public void acquire() throws InterruptedException {
 		Semaphore semaphore = createSemaphore();

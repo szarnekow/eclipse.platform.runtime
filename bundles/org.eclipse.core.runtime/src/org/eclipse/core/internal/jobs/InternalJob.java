@@ -15,18 +15,25 @@ import org.eclipse.core.runtime.jobs.Job;
 /**
  * Internal implementation class for jobs.
  */
-public abstract class InternalJob {
+public abstract class InternalJob implements Comparable {
 	private IJobFamily family;
 	private static final JobManager manager = JobManager.getInstance();
 	private static int nextJobNumber = 0;
+	/**
+	 * If the job is waiting, this represents the time the job should start by.  If
+	 * this job is sleeping, this represents the time the job should wake up.
+	 */
+	private long startTime;
 	
-	private boolean paused = false;
 	private int priority = Job.LONG;
 	private int status = Job.NONE;
 	private final int jobNumber = nextJobNumber++;
 
 	public boolean cancel() {
 		return manager.cancel((Job)this);
+	}
+	public final int compareTo(Object otherJob) {
+		return (int)(startTime - ((InternalJob)otherJob).startTime);
 	}
 	public IJobFamily getFamily() {
 		return family;
@@ -37,23 +44,33 @@ public abstract class InternalJob {
 	protected int getState() {
 		return status;
 	}
-	public boolean pause() {
-		return manager.pause(this);
+	void internalSetPriority(int newPriority) {
+		this.priority = newPriority;
 	}
-	public void resume() {
-		paused = false;
-		//todo implement resume
+	public boolean sleep() {
+		return manager.sleep(this);
+	}
+	public void wakeUp() {
+		manager.wakeUp(this);
 	}
 	public void setFamily(IJobFamily family) {
 		this.family = family;
 	}
-	protected void setPriority(int i) {
-		priority = i;
+	protected void setPriority(int NewPriority) {
+		manager.setPriority(this, NewPriority);
 	}
-	/*package*/ void setState(int i) {
+	/*package*/ final void setState(int i) {
 		status = i;
 	}
 	public String toString() {
 		return "Job(" + jobNumber + ")";  //$NON-NLS-1$//$NON-NLS-2$
 	}
+	/*package*/ final long getStartTime() {
+		return startTime;
+	}
+
+	/*package*/ final void setStartTime(long time) {
+		startTime = time;
+	}
+
 }

@@ -27,7 +27,7 @@ import org.eclipse.core.runtime.IStatus;
  * <code>NONE</code>.  
  * 
  * If the job is successfully paused at any time, it moves into the 
- * <code>PAUSED</code> state.  The job will remain in the paused state until it is 
+ * <code>SLEEPING</code> state.  The job will remain in the paused state until it is 
  * either resumed or canceled.  A running job cannot be paused.
  * 
  * Jobs can be assigned a priority that is used as a hint about how the job should
@@ -127,7 +127,7 @@ public abstract class Job extends InternalJob {
 	 * @see Job#run
 	 * @see IJobManager#getState
 	 */
-	public static final int PAUSED = 3;
+	public static final int SLEEPING = 3;
 
 	/** 
 	 * Job state code (value 4) indicating that a job is waiting to be run.
@@ -172,7 +172,7 @@ public abstract class Job extends InternalJob {
 	 * <ul>
 	 * <li>Job.RUNNING - if the job is currently being run.</li>
 	 * <li>Job.WAITING - if the job is waiting to be run.</li>
-	 * <li>Job.PAUSED - if the job is paused.</li>
+	 * <li>Job.SLEEPING - if the job is sleeping.</li>
 	 * <li>Job.NONE - in all other cases.</li>
 	 * </ul>
 	 * Return the job state
@@ -184,7 +184,7 @@ public abstract class Job extends InternalJob {
 	 * Requests that this job be suspended.
 	 * If the job is currently waiting to be run, it will be removed
 	 * from the queue.  If the job is currently running, this method has no effect. If
-	 * the job is not currently running, its state will become <code>PAUSED</code>,
+	 * the job is not currently running, its state will become <code>SLEEPING</code>,
 	 * and will remain that way until either resumed or canceled.
 	 * 
 	 * Paused jobs can be resumed using <code>resume</code>.
@@ -192,16 +192,16 @@ public abstract class Job extends InternalJob {
 	 * @return false if the job is currently running (and thus cannot
 	 * be paused), and true in all other cases.
 	 */
-	public final boolean pause() {
-		return super.pause();
+	public final boolean sleep() {
+		return super.sleep();
 	}
 	/**
 	 * Resumes execution of the given job.  If the job is not currently
 	 * paused, this request is ignored.
 	 * @param job
 	 */
-	public final void resume() {
-		super.resume();
+	public final void wakeUp() {
+		super.wakeUp();
 	}
 	/**
 	 * Executes the current job.  Returns the result of the execution.

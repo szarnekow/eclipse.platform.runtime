@@ -17,7 +17,9 @@ import org.eclipse.core.runtime.*;
 import org.eclipse.core.runtime.jobs.*;
 
 public class JobManager implements IJobManager {
+	public static final boolean DEBUG = true;
 	private static JobManager instance;
+	private static final long NEVER = Long.MAX_VALUE;
 	/**
 	 * Set of all jobs.
 	 */
@@ -29,10 +31,8 @@ public class JobManager implements IJobManager {
 	 * held while third party code is being called.
 	 */
 	private final Object lock = new Object();
-	/**
-	 * Paused jobs that have arrived at the front of the queue.
-	 */
-	private final HashSet paused = new HashSet();
+
+	private final LockManager lockManager = new LockManager();
 
 	/**
 	 * The pool of worker threads.
@@ -40,15 +40,19 @@ public class JobManager implements IJobManager {
 	private WorkerPool pool;
 
 	private final ProgressHandler progressHandler = new ProgressHandler(this);
-	
-	private final LockManager lockManager = new LockManager();
 
+	/**
+	 * Flag to indicate that the system is still up and running.
+	 */
 	private boolean running = false;
-
+	/**
+	 * Jobs that are scheduled, but have not yet reached their scheduled start time.
+	 */
+	private final PriorityQueue sleeping = new PriorityQueue(10);
 	/**
 	 * jobs that are waiting to be run
 	 */
-	private final Queue waiting = new Queue();
+	private final PriorityQueue waiting = new PriorityQueue(10);
 
 	public static JobManager getInstance() {
 		if (instance == null) {
@@ -66,8 +70,10 @@ public class JobManager implements IJobManager {
 	 * Shuts down the running job manager, if any.
 	 */
 	public static void shutdownIfRunning() {
-		if (instance != null)
+		if (instance != null) {
 			instance.shutdown();
+			instance = null;
+		}
 	}
 	private JobManager() {
 	}
@@ -92,11 +98,11 @@ public class JobManager implements IJobManager {
 		synchronized (lock) {
 			if (!allJobs.remove(job))
 				return true;
-			wasWaiting = waiting.contains(job);
+			wasWaiting = waiting.remove(job) || sleeping.remove(job);
 			oldState = job.getState();
 			((InternalJob) job).setState(Job.NONE);
 		}
-		//only notify listeners if the job was waiting
+		//only notify listeners if the job was waiting or sleeping
 		//(if the job is already running, then we notify when it finishes its run method)
 		if (wasWaiting) {
 			IJobListener[] listeners = getJobListeners();
@@ -118,7 +124,28 @@ public class JobManager implements IJobManager {
 			return ((Worker) current).currentJob();
 		return null;
 	}
-
+	/**
+	 * Returns the delay in milliseconds that a job with a given priority can
+	 * tolerate waiting.
+	 */
+	private long delayFor(int priority) {
+		//these values may need to be tweaked based on machine speed
+		switch (priority) {
+			case Job.INTERACTIVE :
+				return 0L;
+			case Job.SHORT :
+				return 50L;
+			case Job.LONG :
+				return 100L;
+			case Job.BUILD :
+				return 500L;
+			case Job.DECORATE :
+				return 1000L;
+			default :
+				Assert.isTrue(false, "Job has invalid priority: " + priority); //$NON-NLS-1$
+				return 0;
+		}
+	}
 	/**
 	 * Returns the next job to be run.  If no jobs are waiting to run,
 	 * this method will block until a job is available.  The worker must
@@ -151,25 +178,6 @@ public class JobManager implements IJobManager {
 	IProgressMonitor getProgressHandler() {
 		return progressHandler;
 	}
-	/**
-	 * Removes and returns the first waiting job in the queue. If the queue is empty,
-	 * this method blocks until a job becomes available.  Returns null only if
-	 * the job manager has been shutdown.
-	 */
-	private Job nextJob() {
-		synchronized (lock) {
-			if (!running)
-				return null;
-			//spin until we find a valid job or queue is empty
-			while (true) {
-				Job job = (Job) waiting.dequeue();
-				if (job == null)
-					return null;
-				if (prepareToRun(job))
-					return job;
-			}
-		}
-	}
 	/* (non-Javadoc)
 	 * @see IJobManager#newJobFamily(java.lang.String)
 	 */
@@ -183,47 +191,23 @@ public class JobManager implements IJobManager {
 		return lockManager.newLock();
 	}
 	/**
-	 * Request to pause the given job. Return true if the job was successfully paused.
-	 * @param job
+	 * Removes and returns the first waiting job in the queue. Returns null if there
+	 * are no items waiting in the queue
 	 */
-	boolean pause(InternalJob job) {
+	private Job nextJob() {
 		synchronized (lock) {
-			//cannot be paused if it is already running
-			if (job.getState() == Job.RUNNING)
-				return false;
-			job.setState(Job.PAUSED);
-		}
-		IJobListener[] listeners = getJobListeners();
-		for (int i = 0; i < listeners.length; i++) {
-			listeners[i].paused((Job)job);
-		}
-		return true;
-	}
-	/* (non-Javadoc)
-	 * @see IJobManager#pause(java.lang.String)
-	 */
-	public void pause(String family) {
-	}
-	/**
-	 * If the given job is ready to be run, make sure the state is RUNNING and
-	 * return true.  If the job cannot be run, handle it appropriately and return false.
-	 */
-	private boolean prepareToRun(Job job) {
-		if (job == null)
-			return false;
-		synchronized (lock) {
-			switch (job.getState()) {
-				case Job.WAITING :
-					 ((InternalJob) job).setState(Job.RUNNING);
-					return true;
-				case Job.RUNNING :
-					return true;
-				case Job.PAUSED :
-					paused.add(job);
-				case Job.CANCELED :
-				default :
-					return false;
+			//tickle the sleep queue to see if anyone wakes up
+			long now = System.currentTimeMillis();
+			InternalJob job = (InternalJob)sleeping.peek();
+			while (job != null && job.getStartTime() < now) {
+				sleeping.dequeue();
+				job.setState(Job.WAITING);
+				job.setStartTime(now + delayFor(job.getPriority()));
+				waiting.enqueue(job);
+				job = (InternalJob)sleeping.peek();
 			}
+			//return the first waiting job
+			return (Job) waiting.dequeue();
 		}
 	}
 	/* (non-Javadoc)
@@ -237,11 +221,6 @@ public class JobManager implements IJobManager {
 	 */
 	public void removeProgressListener(IProgressListener listener) {
 		progressHandler.removeListener(listener);
-	}
-	/* (non-Javadoc)
-	 * @see org.eclipse.core.runtime.jobs.IJobManager#resume(java.lang.String)
-	 */
-	public void resume(String family) {
 	}
 	/* (non-Javadoc)
 	 * @see org.eclipse.core.runtime.jobs.IJobManager#schedule(ob)
@@ -259,28 +238,52 @@ public class JobManager implements IJobManager {
 	/* (non-Javadoc)
 	 * @see org.eclipse.core.runtime.jobs.IJobManager#schedule(Job, long)
 	 */
-	public void schedule(Job job, long delay) {
-		Assert.isNotNull(job, "Job is null"); //$NON-NLS-1$
+	public void schedule(Job newJob, long delay) {
+		Assert.isNotNull(newJob, "Job is null"); //$NON-NLS-1$
+		InternalJob job = (InternalJob) newJob;
 		synchronized (lock) {
 			allJobs.add(job);
 		}
 		//notify listeners outside sync block
 		IJobListener[] listeners = getJobListeners();
 		for (int i = 0; i < listeners.length; i++) {
-			listeners[i].aboutToSchedule(job);
+			listeners[i].aboutToSchedule(newJob);
 		}
 		synchronized (lock) {
 			//if the job is removed from allJobs, then it has been canceled
 			if (!allJobs.contains(job))
 				return;
-			//if job is already paused, add it to the list of paused jobs
-			if (job.getState() == Job.PAUSED) {
-				paused.add(job);
+			//if job is has been put to sleep, there is nothing to do
+			if (job.getState() == Job.SLEEPING)
 				return;
+			if (delay > 0) {
+				job.setState(Job.SLEEPING);
+				job.setStartTime(System.currentTimeMillis() + delay);
+				sleeping.enqueue(job);
+			} else {
+				job.setState(Job.WAITING);
+				job.setStartTime(System.currentTimeMillis() + delayFor(job.getPriority()));
+				waiting.enqueue(job);
 			}
-			((InternalJob)job).setState(Job.WAITING);
-			waiting.enqueue(job);
-			pool.jobQueued(job);
+		}
+		//call the pool outside sync block to avoid deadlock
+		pool.jobQueued(job);
+	}
+	/**
+	 * Changes a job priority.
+	 */
+	void setPriority(InternalJob job, int newPriority) {
+		synchronized (lock) {
+			int oldPriority = job.getPriority();
+			if (oldPriority == newPriority)
+				return;
+			job.internalSetPriority(newPriority);
+			//if the job is waiting to run, reshuffle the queue
+			if (job.getState() == Job.WAITING) {
+				long oldStart = job.getStartTime();
+				job.setStartTime(oldStart + (delayFor(newPriority) - delayFor(oldPriority)));
+				waiting.resort(job);
+			}
 		}
 	}
 	/**
@@ -291,17 +294,59 @@ public class JobManager implements IJobManager {
 		synchronized (lock) {
 			running = false;
 			//clean up
-			pool.shutdown();
-			paused.clear();
+			sleeping.clear();
 			waiting.clear();
 			//discard all jobs (progress callbacks from running jobs
 			//will now think the jobs are canceled, and should terminate
 			//in a timely fashion)
 			allJobs.clear();
-			//wake up all workers so they know it's time to go home
-			lock.notifyAll();
+		}
+		pool.shutdown();
+	}
+	/* (non-Javadoc)
+	 * @see IJobFamily#sleep()
+	 */
+	public void sleep(IJobFamily family) {
+	}
+	/**
+	 * Puts a job to sleep. Returns true if the job was successfully put to sleep.
+	 */
+	boolean sleep(InternalJob job) {
+		synchronized (lock) {
+			switch (job.getState()) {
+				case Job.RUNNING :
+					//cannot be paused if it is already running
+					return false;
+				case Job.SLEEPING :
+					//update the job wake time
+					job.setStartTime(NEVER);
+					return true;
+				case Job.WAITING :
+					//put the job to sleep
+					waiting.remove(job);
+					job.setStartTime(NEVER);
+					job.setState(Job.SLEEPING);
+					sleeping.enqueue(job);
+					//fall through and notify listeners
+			}
+		}
+		IJobListener[] listeners = getJobListeners();
+		for (int i = 0; i < listeners.length; i++) {
+			listeners[i].paused((Job) job);
+		}
+		return true;
+	}
+	/**
+	 * Returns the estimated time in milliseconds before the next job is scheduled
+	 * to wake up. The result may be negative.
+	 */
+	long sleepHint() {
+		synchronized (lock) {
+			InternalJob next = (InternalJob)sleeping.peek();
+			return next == null ? NEVER : next.getStartTime() - System.currentTimeMillis();
 		}
 	}
+
 	/**
 	 * Returns the next job to be run, or null if no jobs are waiting to run.
 	 * The worker must call endJob when the job is finished running.  
@@ -321,15 +366,17 @@ public class JobManager implements IJobManager {
 			for (int i = 0; i < listeners.length; i++) {
 				listeners[i].aboutToRun(job);
 			}
-			if (!prepareToRun(job))
-				continue;
+			synchronized (lock) {
+				//listeners may have canceled or put the job to sleep
+				if (job.getState() != Job.WAITING)
+					continue;
+				((InternalJob) job).setState(Job.RUNNING);
+			}
 			//get the listeners again because they may have been changed
 			listeners = getJobListeners();
 			for (int i = 0; i < listeners.length; i++) {
 				listeners[i].running(job);
 			}
-			if (!prepareToRun(job))
-				continue;
 			return job;
 		}
 	}
@@ -352,5 +399,28 @@ public class JobManager implements IJobManager {
 	 * @see org.eclipse.core.runtime.jobs.IJobManager#wait(java.lang.String, org.eclipse.core.runtime.IProgressMonitor)
 	 */
 	public void wait(String family, IProgressMonitor monitor) {
+	}
+	/* (non-Javadoc)
+	 * @see IJobFamily#wakeUp()
+	 */
+	public void wakeUp(IJobFamily family) {
+	}
+	/**
+	 * Implementation of wakeUp()
+	 */
+	void wakeUp(InternalJob job) {
+		synchronized (lock) {
+			//cannot wake up if it is not sleeping
+			if (job.getState() != Job.SLEEPING)
+				return;
+			sleeping.remove(job);
+			job.setState(Job.WAITING);
+			job.setStartTime(System.currentTimeMillis() + delayFor(job.getPriority()));
+			waiting.enqueue(job);
+		}
+		IJobListener[] listeners = getJobListeners();
+		for (int i = 0; i < listeners.length; i++) {
+			listeners[i].resumed((Job) job);
+		}
 	}
 }

@@ -33,9 +33,9 @@ class JobFamily implements IJobFamily {
 	public Job[] members() {
 		return null;
 	}
-	public void pause() {
+	public void sleep() {
 	}
-	public void resume() {
+	public void wakeUp() {
 	}
 	public void setPriority(int newPriority) {
 		this.priority = newPriority;

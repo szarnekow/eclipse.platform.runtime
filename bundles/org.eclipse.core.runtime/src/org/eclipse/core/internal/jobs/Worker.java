@@ -16,10 +16,13 @@ import org.eclipse.core.runtime.*;
 import org.eclipse.core.runtime.jobs.Job;
 
 public class Worker extends Thread {
+	//worker number used for naming purposes only
+	private static int nextWorkerNumber = 0;
 	private final WorkerPool pool;
 	private volatile Job currentJob;
 	
 	public Worker(WorkerPool pool) {
+		super("Worker-" + nextWorkerNumber++); //$NON-NLS-1$
 		this.pool = pool;
 	}
 	/**
