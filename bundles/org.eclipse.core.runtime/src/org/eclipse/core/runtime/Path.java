@@ -133,10 +133,15 @@ public IPath addTrailingSeparator() {
 public IPath append(String tail) {
 	//optimize addition of a single segment
 	if (tail.indexOf(SEPARATOR) == -1) {
-		if (".".equals(tail))
-			return this;
-		if ("..".equals(tail))
-			return removeLastSegments(1);
+		int tailLength = tail.length();
+		if (tailLength < 3) {
+			//some special cases
+			if (tailLength == 0 || ".".equals(tail)) {
+				return this;
+			}
+			if ("..".equals(tail))
+				return removeLastSegments(1);
+		}
 		//just add the segment
 		int myLen = segments.length;
 		String[] newSegments = new String[myLen+1];
@@ -330,7 +335,6 @@ private String[] computeSegments(String path) {
 	}
 	return newSegments;
 }
-
 /* (Intentionally not included in javadoc)
  * Compares objects for equality.
  */
@@ -338,11 +342,38 @@ public boolean equals(Object obj) {
 	if (this == obj) {
 		return true;
 	}
-	if (!(obj instanceof IPath)) {
+	if (!(obj instanceof Path)) {
 		return false;
 	}
-	IPath target = (IPath) obj;
-	return removeTrailingSeparator().toString().equals(target.removeTrailingSeparator().toString());
+	Path target = (Path)obj;
+	//check leading separators
+	int mask = HAS_LEADING | IS_UNC;
+	if ((separators & mask) != (target.separators & mask)) {
+		return false;
+	}
+	//check segment count
+	int segmentCount = segments.length;
+	if (segmentCount != target.segmentCount()) {
+		return false;
+	}
+	//check device
+	if (device == null) {
+		if (target.device != null) {
+			return false;
+		}
+	} else {
+		if (!device.equals(target.device)) {
+			return false;
+		}
+	}
+	//check segments
+	for (int i = 0; i < segmentCount; i++) {
+		if (!segments[i].equals(target.segment(i))) {
+			return false;
+		}
+	}
+	//they're the same!
+	return true;
 }
 
 /* (Intentionally not included in javadoc)
@@ -372,8 +403,12 @@ public String getFileExtension() {
  * Computes the hash code for this object.
  */
 public int hashCode() {
-	//XXX easily optimized
-	return removeTrailingSeparator().toString().hashCode();
+	int hash = device == null ? 0 : device.hashCode();
+	int segmentCount = segments.length;
+	for (int i = 0; i < segmentCount; i++) {
+		hash += segments[i].hashCode();
+	}
+	return hash;
 }
 
 /* (Intentionally not included in javadoc)
@@ -663,18 +698,30 @@ public File toFile() {
  * @see IPath#toOSString
  */
 public String toOSString() {
-	//temporarily null the device so we don't convert its separators
-	String tempDevice = device;
-	this.device = null;
-	String osPath = toString().replace(SEPARATOR, File.separatorChar);
-	this.device = tempDevice;
-	return device == null ? osPath : device.concat(osPath);
+	char FILE_SEPARATOR = File.separatorChar;
+	StringBuffer result = new StringBuffer(30);
+	if (device != null)
+		result.append(device);
+	if ((separators & HAS_LEADING) != 0) 
+		result.append(FILE_SEPARATOR);
+	if ((separators & IS_UNC) != 0)
+		result.append(FILE_SEPARATOR);
+	for (int i = 0; i < segments.length; i++) {
+		result.append(segments[i]);
+		if (i < segments.length-1)
+			result.append(FILE_SEPARATOR);
+	}
+	if ((separators & HAS_TRAILING) != 0) 
+		result.append(FILE_SEPARATOR);
+	return result.toString();
 }
 /* (Intentionally not included in javadoc)
  * @see IPath#toString
  */
 public String toString() {
-	StringBuffer result = device == null ? new StringBuffer() : new StringBuffer(device);
+	StringBuffer result = new StringBuffer(30);
+	if (device != null)
+		result.append(device);
 	if ((separators & HAS_LEADING) != 0) 
 		result.append(SEPARATOR);
 	if ((separators & IS_UNC) != 0)
