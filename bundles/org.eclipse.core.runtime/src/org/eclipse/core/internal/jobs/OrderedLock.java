@@ -68,8 +68,10 @@ public class OrderedLock implements ILock {
 			//now it is safe to acquire this lock
 			doAcquire(semaphore);
 			//finally, re-acquire the greater locks that we freed earlier
-			for (int i = 0; i < oldLocks.length; i++) {
-				oldLocks[i].resume();
+			if (oldLocks != null) {
+				for (int i = 0; i < oldLocks.length; i++) {
+					oldLocks[i].resume();
+				}
 			}
 			if (DEBUG)
 				System.out.println("[" + Thread.currentThread() + "] Operation started... :-)"); //$NON-NLS-1$ //$NON-NLS-2$
@@ -160,7 +162,6 @@ public class OrderedLock implements ILock {
 	protected void setDepth(int newDepth) {
 		this.depth = newDepth;
 	}
-		
 	/**
 	 * For debugging purposes only.
 	 */
