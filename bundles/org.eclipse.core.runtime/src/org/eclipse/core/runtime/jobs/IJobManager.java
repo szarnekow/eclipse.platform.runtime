@@ -42,13 +42,6 @@ public interface IJobManager {
 	 */
 	public void addJobListener(IJobListener listener);
 	/**
-	 * Registers a progress listener with the job manager.  
-	 * Has no effect if an identical listener is already registered.
-	 * 
-	 * @param listener the listener to be added.
-	 */
-	public void addProgressListener(IProgressListener listener);
-	/**
 	 * Stops all jobs in the given job family.  Jobs in the family that are currently waiting
 	 * will be removed from the queue.  Sleeping jobs will be discarded without having 
 	 * a chance to wake up.  Currently executing jobs will be asked to cancel but there 
@@ -90,13 +83,26 @@ public interface IJobManager {
 	 */
 	public void removeJobListener(IJobListener listener);
 	/**
-	 * Removes a progress listener from the job manager.  
-	 * Has no effect if an identical listener is not already registered.
-	 * 
-	 * @param listener the listener to be removed.
+	 * Provides a hook that is notified whenever a thread is about to wait on a lock,
+	 * or when a thread is about to release a lock.  This hook must only be set once.
+	 * <p>
+	 * This method is for internal use by the platform-related plug-ins.  
+	 * Clients should not call this method.
+	 * </p>
 	 */
-	public void removeProgressListener(IProgressListener listener);
-
+	public void setLockListener(ILockListener listener);
+	/**
+	 * Registers a progress provider with the job manager.  If there was a
+	 * provider already registered, it is replaced.
+	 * <p>
+	 * This method is for internal use by the platform-related plug-ins.  
+	 * Clients should not call this method.
+	 * </p>
+	 * 
+	 * @param provider the new provider, or <code>null</code> if no progress
+	 * is needed.
+	 */
+	public void setProgressProvider(IProgressProvider provider);
 	/**
 	 * Requests that all jobs in the given job family be suspended.  Jobs currently 
 	 * waiting to be run will be removed from the queue and moved into the 

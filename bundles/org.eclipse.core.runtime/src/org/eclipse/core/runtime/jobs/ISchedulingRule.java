@@ -12,8 +12,8 @@ package org.eclipse.core.runtime.jobs;
 /**
  * Scheduling rules are used by jobs to indicate when they need exclusive access
  * to a resource.  The job manager guarantees that no two jobs with conflicting
- * scheduling rules will run concurrently.  How the rules are defined and composed
- * is entirely up to clients of the job manager.
+ * scheduling rules will run concurrently. The job manager provides no implementations
+ * of scheduling rules, but clients are free to implement their own.
  * 
  * @see Job#getRule
  * @see Job#setRule
@@ -25,6 +25,13 @@ public interface ISchedulingRule {
 	 * If <code>false</code> is returned, then no job with this rule will be run at the 
 	 * same time as a job with the conflicting rule.  If <code>true</code> is returned, 
 	 * then the job manager is free to run jobs with these rules at the same time.
+	 * <p>
+	 * Implementations of this method must be sure to obey the standard rules
+	 * of equivalence relations.  That is, implementations must be reflexive,
+	 * symmetric, transitive, and consistent.    Implementations of this method
+	 * must return <code>false</code> when compared to a rule they know nothing
+	 * about.
+	 *
 	 * 
 	 * @param rule the rule to check for conflicts
 	 * @return <code>true</code> if the rule is conflicting, and <code>false</code>
