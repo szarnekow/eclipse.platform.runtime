@@ -32,7 +32,7 @@ package org.eclipse.core.runtime.jobs;
  * <p>
  * This interface is not intended to be implemented by clients.
  * </p>
- * @see IJobManager.newLock
+ * @see IJobManager#newLock
  * @since 3.0
  */
 public interface ILock {

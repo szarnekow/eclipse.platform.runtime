@@ -12,7 +12,11 @@ package org.eclipse.core.runtime.jobs;
 
 
 /**
- * A progress listener is notified of progress on a running job.
+ * A progress listener is notified of progress on all running jobs.
+ * 
+ * @see IJobManager#addProgressListener
+ * @see IJobManager#removeProgressListener
+ * @since 3.0
  */
 public interface IProgressListener {
 	/**

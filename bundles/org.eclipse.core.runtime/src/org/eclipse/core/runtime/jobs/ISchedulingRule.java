@@ -14,6 +14,10 @@ package org.eclipse.core.runtime.jobs;
  * to a resource.  The job manager guarantees that no two jobs with conflicting
  * scheduling rules will run concurrently.  How the rules are defined and composed
  * is entirely up to clients of the job manager.
+ * 
+ * @see Job#getRule
+ * @see Job#setRule
+ * @since 3.0
  */
 public interface ISchedulingRule {
 	/**

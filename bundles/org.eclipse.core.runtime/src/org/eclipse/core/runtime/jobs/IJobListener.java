@@ -16,8 +16,12 @@ import org.eclipse.core.runtime.IStatus;
  * Callback interface for clients interested in being notified of
  * the progress of jobs being managed by the job manager.
  * 
- * @see IJobManager#addListener(IJobListener)
- * @see IJobManager#removeListener(IJobListener)
+ * @see JobAdapter
+ * @see IJobManager#addJobListener(IJobListener)
+ * @see IJobManager#removeJobListener(IJobListener)
+ * @see Job#addJobListener(IJobListener)
+ * @see Job#removeJobListener(IJobListener)
+ * @since 3.0
  */
 public interface IJobListener {
 	/**

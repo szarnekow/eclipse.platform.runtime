@@ -38,6 +38,8 @@ import org.eclipse.core.runtime.IStatus;
  * more detail about what each priority means.  By default, jobs start in the 
  * <code>LONG</code> priority class.
  * 
+ * @see IJobManager
+ * @since 3.0
  */
 public abstract class Job extends InternalJob {
 	

@@ -30,7 +30,7 @@ import org.eclipse.core.runtime.IProgressMonitor;
  * </ul>
  * 
  * @see Job
- * @see Lock
+ * @see ILock
  * @since 3.0
  */
 public interface IJobManager {
