@@ -7,12 +7,25 @@ public class Semaphore {
 		this.runnable = runnable;
 		notifications = 0;
 	}
-	public synchronized void acquire() throws InterruptedException {
+	/**
+	 * Attempts to acquire this semaphore.  Returns true if it was successfully acquired,
+	 * and false otherwise.
+	 */
+	public synchronized boolean acquire(long delay) throws InterruptedException {
 		if (Thread.interrupted())
 			throw new InterruptedException();
-		while (notifications <= 0)
-			wait();
-		notifications--;
+		long start = System.currentTimeMillis();
+		long timeLeft = delay;
+		while (true) {
+			if (notifications > 0) {
+				notifications--;
+				return true;
+			}
+			if (timeLeft < 0)
+				return false;
+			wait(timeLeft);
+			timeLeft = start + delay - System.currentTimeMillis();
+		}
 	}
 	public boolean equals(Object obj) {
 		return (runnable == ((Semaphore) obj).runnable);

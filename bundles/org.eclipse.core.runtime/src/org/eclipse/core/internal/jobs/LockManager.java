@@ -3,18 +3,19 @@ package org.eclipse.core.internal.jobs;
 import java.util.ArrayList;
 
 import org.eclipse.core.internal.runtime.Assert;
+import org.eclipse.core.runtime.jobs.ILockListener;
 
 /**
  * Manages a set of locks and ensures that deadlock never occurs.
  */
-public class LockManager {
+public class LockManager implements ILockListener {
 	/**
 	 * This class captures the state of suspended locks.  Locks are suspended if
 	 * a thread tries to acquire locks out of order.
 	 */
 	public static class LockState {
-		private OrderedLock lock;
 		private int depth;
+		private OrderedLock lock;
 		/**
 		 * Suspends ownership of the given lock, and returns the saved state.
 		 */
@@ -25,15 +26,47 @@ public class LockManager {
 			return state;
 		}
 		/**
-		 * Re-acquires a suspended lock and reverts to the given state.
+		 * Re-acquires a suspended lock and reverts to the correct lock depth.
 		 */
-		protected void resume() throws InterruptedException {
-			lock.doAcquire(lock.createSemaphore());
+		protected void resume() {
+			//spin until the lock is successfully acquired
+			//NOTE: spinning here allows the UI thread to service pending syncExecs
+			//if the UI thread is waiting to acquire a lock.
+			while (true) {
+				try {
+					if (lock.doAcquire(lock.createSemaphore(), Long.MAX_VALUE))
+						break;
+				} catch (InterruptedException e) {
+				}
+			}
 			lock.setDepth(depth);
 		}
 	}
+	private ILockListener lockListener;
 	private final ArrayList locks = new ArrayList();
 	public LockManager() {
+	}
+	/* (non-Javadoc)
+	 * Method declared on ILockListener
+	 */
+	public void aboutToRelease() {
+		if (lockListener != null)
+			lockListener.aboutToRelease();
+	}
+	/* (non-Javadoc)
+	 * Method declared on ILockListener
+	 */
+	public void aboutToWait(Thread lockOwner) {
+		if (lockListener != null)
+			lockListener.aboutToWait(lockOwner);
+	}
+	public synchronized OrderedLock newLock() {
+		OrderedLock result = new OrderedLock(this);
+		locks.add(result);
+		return result;
+	}
+	public void setLockListener(ILockListener listener) {
+		this.lockListener = listener;
 	}
 	/**
 	 * The current thread is attempting to acquire the given lock.
@@ -70,10 +103,5 @@ public class LockManager {
 		if (toAcquire == null)
 			return null;
 		return (LockState[]) toAcquire.toArray(new LockState[toAcquire.size()]);
-	}
-	public synchronized OrderedLock newLock() {
-		OrderedLock result = new OrderedLock(this);
-		locks.add(result);
-		return result;
 	}
 }

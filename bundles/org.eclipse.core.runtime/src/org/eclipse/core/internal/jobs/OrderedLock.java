@@ -1,6 +1,5 @@
 package org.eclipse.core.internal.jobs;
 
-import org.eclipse.core.internal.runtime.Assert;
 import org.eclipse.core.runtime.jobs.ILock;
 
 /**
@@ -54,19 +53,23 @@ public class OrderedLock implements ILock {
 		this.manager = manager;
 		this.number = nextLockNumber++;
 	}
-	/**
-	 * Acquires this lock.  Callers will block indefinitely
-	 * until the lock becomes available or this thread is interrupted. 
+	/* (non-Javadoc)
+	 * @see ILock#acquire(long)
 	 */
-	public void acquire() throws InterruptedException {
+	public boolean acquire(long delay) throws InterruptedException {
+		if (Thread.interrupted())
+			throw new InterruptedException();
+		if (delay < 0)
+			return attempt();
 		Semaphore semaphore = createSemaphore();
+		boolean success = false;
 		if (semaphore != null) {
 			if (DEBUG)
 				System.out.println("[" + Thread.currentThread() + "] Operation waiting to be executed... :-/"); //$NON-NLS-1$ //$NON-NLS-2$
 			//free all greater locks that this thread currently holds
 			LockManager.LockState[] oldLocks = manager.suspendGreaterLocks(this);
 			//now it is safe to acquire this lock
-			doAcquire(semaphore);
+			success = doAcquire(semaphore, delay);
 			//finally, re-acquire the greater locks that we freed earlier
 			if (oldLocks != null) {
 				for (int i = 0; i < oldLocks.length; i++) {
@@ -77,40 +80,65 @@ public class OrderedLock implements ILock {
 				System.out.println("[" + Thread.currentThread() + "] Operation started... :-)"); //$NON-NLS-1$ //$NON-NLS-2$
 		}
 		depth++;
+		return success;
+	}
+	/* (non-Javadoc)
+	 * @see ILock#acquire
+	 */
+	public void acquire() {
+		//spin until the lock is successfully acquired
+		//NOTE: spinning here allows the UI thread to service pending syncExecs
+		//if the UI thread is trying to acquire a lock.
+		while (true) {
+			try {
+				if (acquire(Long.MAX_VALUE))
+					return;
+			} catch (InterruptedException e) {
+			}
+		}
+	}
+	/**
+	 * Attempts to acquire the lock.  Returns false if the lock is not available and
+	 * true if the lock has been successfully acquired.
+	 */
+	protected boolean attempt() {
+		//return null if we already own the lock
+		if (currentOperationThread == Thread.currentThread())
+			return true;
+		//if nobody is waiting, grant the lock immediately
+		if (currentOperationThread == null && operations.isEmpty()) {
+			currentOperationThread = Thread.currentThread();
+			return true;
+		}
+		return false;
 	}
 	/**
 	 * Returns null if acquired and a Semaphore object otherwise.
 	 */
 	protected synchronized Semaphore createSemaphore() {
-		//return null if we already own the lock
-		if (currentOperationThread == Thread.currentThread())
-			return null;
-		//if nobody is waiting, grant the lock immediately
-		if (currentOperationThread == null && operations.isEmpty()) {
-			currentOperationThread = Thread.currentThread();
-			return null;
-		}
-		return enqueue(new Semaphore(Thread.currentThread()));
+		return attempt() ? null : enqueue(new Semaphore(Thread.currentThread()));
 	}
 	/**
-	 * Attempts to acquire this lock.  Callers will block indefinitely 
-	 * until this lock comes available to them.  
-	 * <p>
-	 * Clients may extend this method but should not otherwise call it.
-	 * </p>
-	 * @see #release
+	 * Attempts to acquire this lock.  Callers will block  until this lock comes available to 
+	 * them, or until the specified delay has elapsed.  A negative delay indicates an
+	 * infinite delay.
 	 */
-	protected void doAcquire(Semaphore semaphore) throws InterruptedException {
+	protected boolean doAcquire(Semaphore semaphore, long delay) throws InterruptedException {
 		if (semaphore != null) {
+			boolean success = false;
+			//notifiy hook to service pending syncExecs before falling asleep
+			manager.aboutToWait(getCurrentOperationThread());
 			try {
-				semaphore.acquire();
+				success = semaphore.acquire(delay);
 			} catch (InterruptedException e) {
 				if (DEBUG)
 					System.out.println("[" + Thread.currentThread() + "] Operation interrupted while waiting... :-|"); //$NON-NLS-1$ //$NON-NLS-2$
 				throw e;
 			}
 			updateCurrentOperation();
+			return success;
 		}
+		return true;
 	}
 	/**
 	 * If there is another semaphore with the same runnable in the
@@ -128,6 +156,8 @@ public class OrderedLock implements ILock {
 	 * Force this lock to release, regardless of depth.  Returns the current depth.
 	 */
 	protected synchronized int doRelease() {
+		//notifiy hook
+		manager.aboutToRelease();
 		int oldDepth = depth;
 		depth = 0;
 		Semaphore next = (Semaphore) operations.peek();
@@ -144,12 +174,12 @@ public class OrderedLock implements ILock {
 		return currentOperationThread;
 	}
 
-	/**
-	 * Releases this lock allowing others to acquire it.
-	 * @see #acquire
+	/* (non-Javadoc)
+	 * @see ILock#release
 	 */
 	public synchronized void release() {
-		Assert.isTrue(currentOperationThread == Thread.currentThread(), "OrderedLock released by wrong thread"); //$NON-NLS-1$
+		if (currentOperationThread != Thread.currentThread() || depth == 0)
+			return;
 		//only release the lock when the depth reaches zero
 		if (--depth == 0) {
 			doRelease();
