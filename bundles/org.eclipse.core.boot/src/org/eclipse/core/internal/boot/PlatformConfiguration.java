@@ -35,7 +35,10 @@ public class PlatformConfiguration implements IPlatformConfiguration {
 
 	private URL configLocation;
 	private HashMap sites;
-	private HashMap nativeSites;
+	private HashMap externalLinkSites; // used to restore prior link site state
+	private String primaryFeature;
+	private String primaryFeatureVersion;
+	private String primaryFeatureApplication;
 	private long lastChangeStamp;
 	private long changeStamp;
 	private boolean changeStampIsValid = false;
@@ -53,6 +56,7 @@ public class PlatformConfiguration implements IPlatformConfiguration {
 	private static final String PLUGINS = "plugins";
 	private static final String INSTALL = "install";
 	private static final String CONFIG_FILE = "platform.cfg";
+	private static final String CONFIG_FILE_INIT = "install.properties";
 	private static final String FEATURES = INSTALL + "/features";
 	private static final String LINKS = "links";
 	private static final String PLUGIN_XML = "plugin.xml";
@@ -70,6 +74,14 @@ public class PlatformConfiguration implements IPlatformConfiguration {
 	private static final String CFG_PLUGIN_STAMP = "stamp.plugins";
 	private static final String CFG_UPDATEABLE = "updateable";
 	private static final String CFG_LINK_FILE = "linkfile";
+	private static final String CFG_PRIMARY_FEATURE = "primary.feature";
+	private static final String INIT_PRIMARY_FEATURE = "application.configuration";
+	private static final String DFLT_PRIMARY_FEATURE = "org.eclipse.sdk";
+	private static final String CFG_PRIMARY_FEATURE_VERSION = "primary.feature.version";
+	private static final String INIT_PRIMARY_FEATURE_VERSION = "application.configuration";
+	private static final String CFG_PRIMARY_FEATURE_APP = "primary.feature.application";
+	private static final String INIT_PRIMARY_FEATURE_APP = "application";
+	private static final String DFLT_PRIMARY_FEATURE_APP = "org.eclipse.ui.workbench";
 	private static final String CFG_VERSION = "version";
 	private static final String VERSION = "1.0";
 	private static final String EOF = "eof";
@@ -367,16 +379,8 @@ public class PlatformConfiguration implements IPlatformConfiguration {
 			return result;
 		}
 		
-		private void setUpdateable(boolean updateable) {
-			this.updateable = updateable;
-		}
-		
-		private void setExternalLinkFileName(String linkFileName) {
-			this.linkFileName = linkFileName;
-		}
-		
 		private boolean isExternallyLinkedSite() {
-			return (linkFileName==null || linkFileName.trim().equals(""));
+			return (linkFileName!=null && !linkFileName.trim().equals(""));
 		}
 }
 
@@ -427,7 +431,7 @@ public class PlatformConfiguration implements IPlatformConfiguration {
 
 	private PlatformConfiguration(String configArg) throws IOException {
 		this.sites = new HashMap();
-		this.nativeSites = new HashMap();
+		this.externalLinkSites = new HashMap();
 						
 		// Determine configuration URL to use (based on command line argument)		
 		// flag: -configuration COMMON | USER.HOME | USER.DIR | <path>
@@ -474,7 +478,7 @@ public class PlatformConfiguration implements IPlatformConfiguration {
 	
 	PlatformConfiguration(URL url) throws IOException {
 		this.sites = new HashMap();
-		this.nativeSites = new HashMap();
+		this.externalLinkSites = new HashMap();
 		initialize(url);
 	}
 
@@ -848,7 +852,7 @@ public class PlatformConfiguration implements IPlatformConfiguration {
 			FileInputStream is = null;
 			try {
 				is = new FileInputStream(links[i]);
-				props.load(is);				
+				props.load(is);			
 				configureExternalLinkSites(links[i],props);				
 			} catch(IOException e) {
 				if (DEBUG)
@@ -899,9 +903,18 @@ public class PlatformConfiguration implements IPlatformConfiguration {
 				continue;
 			}
 			linkSite = (SiteEntry) createSiteEntry(siteURL, linkSitePolicy);
-			linkSite.setUpdateable(updateable);
-			linkSite.setExternalLinkFileName(linkFile.getAbsolutePath());
+			linkSite.updateable = updateable;
+			linkSite.linkFileName = linkFile.getAbsolutePath();
+			SiteEntry lastLinkSite = (SiteEntry) externalLinkSites.get(siteURL);
+			if (lastLinkSite != null) {
+				// restore previous change stamps
+				linkSite.lastChangeStamp = lastLinkSite.lastChangeStamp;
+				linkSite.lastFeaturesChangeStamp = lastLinkSite.lastFeaturesChangeStamp;
+				linkSite.lastPluginsChangeStamp = lastLinkSite.lastPluginsChangeStamp; 
+			}			
 			configureSite(linkSite);
+			if (DEBUG)
+				debug("   "+(updateable?"R/W -> ":"R/O -> ")+siteURL.toString());
 		}
 	}
 	
@@ -909,8 +922,9 @@ public class PlatformConfiguration implements IPlatformConfiguration {
 		
 		if (url == null) 
 			throw new IOException(Policy.bind("cfig.unableToLoad.noURL"));
+
 		
-		// try to load saved properties file
+		// try to load saved configuration file
 		Properties props = new Properties();
 		InputStream is = null;
 		try {
@@ -935,7 +949,37 @@ public class PlatformConfiguration implements IPlatformConfiguration {
 			throw new IOException(Policy.bind("cfig.badVersion",v));
 		}
 		
-		// load simple properties 
+						
+		// load any initialization attributes. These become the initial default settings
+		// for critical attributes (eg. primary feature) supplied by the packaging team
+		Properties initProps = new Properties();
+		is = null;
+		try {
+			URL initURL = new URL(url,CONFIG_FILE_INIT);
+			is = initURL.openStream();
+			initProps.load(is);
+		} catch(IOException e) { // ignore errors
+		} finally {
+			if (is!=null) {
+				try {
+					is.close();
+				} catch(IOException e) {
+				}
+			}
+		}
+				
+		// load "bootstrap" properties
+		primaryFeature = loadAttribute(props, CFG_PRIMARY_FEATURE, loadAttribute(initProps, INIT_PRIMARY_FEATURE,DFLT_PRIMARY_FEATURE));
+		primaryFeatureVersion = loadAttribute(props, CFG_PRIMARY_FEATURE_VERSION, loadAttribute(initProps, INIT_PRIMARY_FEATURE_VERSION,null));
+		primaryFeatureApplication = loadAttribute(props, CFG_PRIMARY_FEATURE_APP, loadAttribute(initProps, INIT_PRIMARY_FEATURE_APP,DFLT_PRIMARY_FEATURE_APP));
+		// FIXME: temporary code for 1.0/ 2.0 compatibility
+		int ix;
+		if (primaryFeature!=null && (ix=primaryFeature.indexOf("_"))!=-1) 
+			primaryFeature = primaryFeature.substring(0,ix);
+		if (primaryFeatureVersion!=null && (ix=primaryFeatureVersion.indexOf("_"))!=-1)
+			primaryFeatureVersion = primaryFeatureVersion.substring(ix+1);
+			
+		// load simple properties
 		String stamp = loadAttribute(props, CFG_STAMP, null);
 		if (stamp != null) {
 			try {
@@ -965,6 +1009,9 @@ public class PlatformConfiguration implements IPlatformConfiguration {
 		for (int i=1; se != null; i++) {
 			if (!se.isExternallyLinkedSite())
 				configureSite(se);
+			else
+				// remember external link site state, but do not configure
+				externalLinkSites.put(se.getURL(),se); 
 			se = (SiteEntry) loadSite(props, CFG_SITE+"."+i, null);	
 		}
 	}
@@ -1034,14 +1081,14 @@ public class PlatformConfiguration implements IPlatformConfiguration {
 		String flag = loadAttribute(props, name+"."+CFG_UPDATEABLE, null);
 		if (flag != null) {
 			if (flag.equals("true"))
-				site.setUpdateable(true);
+				site.updateable = true;
 			else
-				site.setUpdateable(false);
+				site.updateable = false;
 		}
 		
 		String linkname = loadAttribute(props, name+"."+CFG_LINK_FILE, null);
 		if (linkname != null && !linkname.equals("")) {
-			site.setExternalLinkFileName(linkname);
+			site.linkFileName = linkname.replace('/',File.separatorChar);
 		}
 		
 		return site;
@@ -1093,6 +1140,9 @@ public class PlatformConfiguration implements IPlatformConfiguration {
 		w.println("");
 		
 		// write global attributes
+		writeAttribute(w,CFG_PRIMARY_FEATURE,primaryFeature);
+		writeAttribute(w,CFG_PRIMARY_FEATURE_VERSION,primaryFeatureVersion); 
+		writeAttribute(w,CFG_PRIMARY_FEATURE_APP,primaryFeatureApplication); 
 		writeAttribute(w,CFG_STAMP,Long.toString(getChangeStamp()));
 		writeAttribute(w,CFG_FEATURE_STAMP,Long.toString(getFeaturesChangeStamp()));
 		writeAttribute(w,CFG_PLUGIN_STAMP,Long.toString(getPluginsChangeStamp()));
@@ -1111,7 +1161,6 @@ public class PlatformConfiguration implements IPlatformConfiguration {
 		
 		// write site separator
 		w.println("");
-		w.println("# "+entry.getURL().toString());
 		
 		// write out site settings
 		writeAttribute(w, id + "." + CFG_URL, entry.getURL().toString());
@@ -1120,7 +1169,7 @@ public class PlatformConfiguration implements IPlatformConfiguration {
 		writeAttribute(w, id + "." + CFG_PLUGIN_STAMP,Long.toString(entry.getPluginsChangeStamp()));
 		writeAttribute(w, id + "." + CFG_UPDATEABLE, entry.updateable?"true":"false");
 		if (entry.linkFileName != null && !entry.linkFileName.trim().equals(""))
-			writeAttribute(w, id + "." + CFG_LINK_FILE, entry.linkFileName.trim());
+			writeAttribute(w, id + "." + CFG_LINK_FILE, entry.linkFileName.trim().replace(File.separatorChar,'/'));
 		
 		// write out site policy
 		int type = entry.getSitePolicy().getType();
@@ -1157,6 +1206,8 @@ public class PlatformConfiguration implements IPlatformConfiguration {
 	}
 
 	private void writeAttribute(PrintWriter w, String id, String value) {
+		if (value==null || value.trim().equals(""))
+			return;
 		w.println(id + "=" + escapedValue(value));
 	}
 	
