@@ -1208,8 +1208,9 @@ public class PlatformConfiguration implements IPlatformConfiguration {
 	 * or BootLoader.startup(...) method. Supported for R1.0 compatibility
 	 * @param r10apps application identifies as passed on the BootLoader.run(...)
 	 * method. Supported for R1.0 compatibility.
+	 * @param metaPath path to the platform metadata area
 	 */
-	static synchronized String[] startup(String[] cmdArgs, URL r10plugins, String r10app) throws Exception {			
+	static synchronized String[] startup(String[] cmdArgs, URL r10plugins, String r10app, String metaPath) throws Exception {			
 		
 		// if BootLoader was invoked directly (rather than via Main), it is possible
 		// to have the plugin-path and application set in 2 ways: (1) via an explicit
