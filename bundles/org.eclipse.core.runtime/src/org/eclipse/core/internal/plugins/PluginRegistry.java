@@ -191,9 +191,11 @@ void logError(IStatus status) {
 }
 public void saveRegistry() throws IOException {
 	IPath path = InternalPlatform.getMetaArea().getRegistryPath();
+	IPath tempPath = InternalPlatform.getMetaArea().getBackupFilePathFor(path);
+
 	DataOutputStream output = null;
 	try {
-		output = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(path.toFile())));
+		output = new DataOutputStream(new BufferedOutputStream(new SafeFileOutputStream(path.toOSString(),tempPath.toOSString())));
 	} catch (IOException ioe) {
 		String message = Policy.bind("meta.unableToCreateCache");
 		IStatus status = new Status(IStatus.ERROR, Platform.PI_RUNTIME, Platform.PLUGIN_ERROR, message, ioe);
