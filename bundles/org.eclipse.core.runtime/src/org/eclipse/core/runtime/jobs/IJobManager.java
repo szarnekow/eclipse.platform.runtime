@@ -33,6 +33,23 @@ public interface IJobManager {
 	 * @param listener
 	 */
 	public Job currentJob();
+	/**
+	 * Creates a new job family.
+	 * 
+	 * @param priority the priority for all jobs in this family
+	 * @param exclusive <code>true</code> if this family only allows one job
+	 * to run at once, and <code>false</code> otherwise.
+	 * @return the new job family
+	 */
+	public IJobFamily newJobFamily(int priority, boolean exclusive);
+	/**
+	 * Creates a new lock object.  All lock objects supplied by the job manager
+	 * know about each other and will always avoid circular deadlock amongst
+	 * themselves.
+	 * 
+	 * @return the new lock object
+	 */
+	public ILock newLock();
 
 	/**
 	 * Removes a job listener from the job manager.  

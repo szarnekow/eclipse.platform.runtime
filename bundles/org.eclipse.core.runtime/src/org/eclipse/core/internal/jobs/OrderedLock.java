@@ -1,29 +1,33 @@
-package org.eclipse.core.internal.locks;
+package org.eclipse.core.internal.jobs;
 
 import org.eclipse.core.internal.runtime.Assert;
+import org.eclipse.core.runtime.jobs.ILock;
 
 /**
  * A lock used to control write access to an exclusive resource.
  * 
- * The lock uses a circular wait algorithm to ensure that locks
- * are always acquired in a strict order.  This makes it impossible
- * for n such locks to deadlock.  The downside is that this means
+ * The lock avoids circular waiting deadlocks by ensuring that locks
+ * are always acquired in a strict order.  This makes it impossible for n such 
+ * locks to deadlock while waiting for each other.  The downside is that this means
  * that during an interval when a process owns a lock, it can be forced
  * to give the lock up and wait until all locks it requires become
  * available.  This removes the feature of exclusive access to the
  * resource in contention for the duration between acquire() and
  * release() calls.
  * 
- * This lock is reentrant.  The same process can acquire the lock
- * any number of times.
- * 
  * The lock implementation prevents starvation by granting the
  * lock in the same order in which acquire() requests arrive. In
  * this scheme, starvation is only possible if a thread retains
  * a lock indefinitely.
  */
-public class Lock {
+public class OrderedLock implements ILock {
 	private static final boolean DEBUG = true;
+	/**
+	 * Records the number of successive acquires in the same
+	 * thread. The thread is released only when the depth
+	 * reaches zero.
+	 */
+	private int depth;
 	/**
 	 * Locks are sequentially ordered for debugging purposes.
 	 */
@@ -32,12 +36,6 @@ public class Lock {
 	 * The thread of the operation that currently owns the lock.
 	 */
 	private Thread currentOperationThread;
-	/**
-	 * Records the number of successive acquires in the same
-	 * thread. The thread is released only when the depth
-	 * reaches zero.
-	 */
-	private int depth = 0;
 	/**
 	 * The manager that implements the circular wait protocol.
 	 */
@@ -52,7 +50,7 @@ public class Lock {
 	/**
 	 * Returns a new workspace lock.
 	 */
-	protected Lock(LockManager manager) {
+	protected OrderedLock(LockManager manager) {
 		this.manager = manager;
 		this.number = nextLockNumber++;
 	}
@@ -61,17 +59,29 @@ public class Lock {
 	 * until this lock becomes available.
 	 */
 	public void acquire() throws InterruptedException {
-		Lock[] toAcquire = manager.computeLocksToAcquire(this);
-		//acquire the necessary locks in ascending order
-		for (int i = 0; i < toAcquire.length; i++) {
-			toAcquire[i].doAcquire();
+		Semaphore semaphore = createSemaphore();
+		if (semaphore != null) {
+			if (DEBUG)
+				System.out.println("[" + Thread.currentThread() + "] Operation waiting to be executed... :-/"); //$NON-NLS-1$ //$NON-NLS-2$
+			//free all greater locks that this thread currently holds
+			LockManager.LockState[] oldLocks = manager.suspendGreaterLocks(this);
+			//now it is safe to acquire this lock
+			doAcquire(semaphore);
+			//finally, re-acquire the greater locks that we freed earlier
+			for (int i = 0; i < oldLocks.length; i++) {
+				oldLocks[i].resume();
+			}
+			if (DEBUG)
+				System.out.println("[" + Thread.currentThread() + "] Operation started... :-)"); //$NON-NLS-1$ //$NON-NLS-2$
 		}
+		depth++;
 	}
 	/**
 	 * Returns null if acquired and a Semaphore object otherwise.
 	 */
-	private synchronized Semaphore acquireSemaphore() {
-		if (isCurrentOperation())
+	protected synchronized Semaphore createSemaphore() {
+		//return null if we already own the lock
+		if (currentOperationThread == Thread.currentThread())
 			return null;
 		//if nobody is waiting, grant the lock immediately
 		if (currentOperationThread == null && operations.isEmpty()) {
@@ -88,11 +98,8 @@ public class Lock {
 	 * </p>
 	 * @see #release
 	 */
-	protected void doAcquire() throws InterruptedException {
-		Semaphore semaphore = acquireSemaphore();
+	protected void doAcquire(Semaphore semaphore) throws InterruptedException {
 		if (semaphore != null) {
-			if (DEBUG)
-				System.out.println("[" + Thread.currentThread() + "] Operation waiting to be executed... :-/"); //$NON-NLS-1$ //$NON-NLS-2$
 			try {
 				semaphore.acquire();
 			} catch (InterruptedException e) {
@@ -101,11 +108,7 @@ public class Lock {
 				throw e;
 			}
 			updateCurrentOperation();
-			if (DEBUG)
-				System.out.println("[" + Thread.currentThread() + "] Operation started... :-)"); //$NON-NLS-1$ //$NON-NLS-2$
-			Assert.isTrue(depth == 0, "Lock depth is invalid"); //$NON-NLS-1$
 		}
-		depth++;
 	}
 	/**
 	 * If there is another semaphore with the same runnable in the
@@ -120,34 +123,49 @@ public class Lock {
 		return semaphore;
 	}
 	/**
+	 * Force this lock to release, regardless of depth.  Returns the current depth.
+	 */
+	protected synchronized int doRelease() {
+		int oldDepth = depth;
+		depth = 0;
+		Semaphore next = (Semaphore) operations.peek();
+		currentOperationThread = null;
+		if (next != null)
+			next.release();
+		return oldDepth;
+	}
+	/**
 	 * Returns the thread of the current operation, or null if
 	 * there is no current operation
 	 */
 	protected synchronized Thread getCurrentOperationThread() {
 		return currentOperationThread;
 	}
-	private synchronized boolean isCurrentOperation() {
-		return currentOperationThread == Thread.currentThread();
-	}
+
 	/**
 	 * Releases this lock allowing others to acquire it.
 	 * @see #acquire
 	 */
 	public synchronized void release() {
-		Assert.isTrue(currentOperationThread == Thread.currentThread(), "Lock released by wrong thread"); //$NON-NLS-1$
+		Assert.isTrue(currentOperationThread == Thread.currentThread(), "OrderedLock released by wrong thread"); //$NON-NLS-1$
 		//only release the lock when the depth reaches zero
 		if (--depth == 0) {
-			Semaphore next = (Semaphore) operations.peek();
-			currentOperationThread = null;
-			if (next != null)
-				next.release();
+			doRelease();
 		}
 	}
+	/**
+	 * Forces the lock to be at the given depth.  Used when re-acquiring a suspended
+	 * lock.
+	 */
+	protected void setDepth(int newDepth) {
+		this.depth = newDepth;
+	}
+		
 	/**
 	 * For debugging purposes only.
 	 */
 	public String toString() {
-		return "Lock(" + number + ")"; //$NON-NLS-1$ //$NON-NLS-2$
+		return "OrderedLock(" + number + ")"; //$NON-NLS-1$ //$NON-NLS-2$
 	}
 	/**
 	 * Removes the waiting operation from the queue

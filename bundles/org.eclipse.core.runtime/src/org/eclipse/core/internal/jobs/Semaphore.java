@@ -1,4 +1,4 @@
-package org.eclipse.core.internal.locks;
+package org.eclipse.core.internal.jobs;
 
 public class Semaphore {
 	protected long notifications;
