@@ -22,7 +22,7 @@ import org.eclipse.core.runtime.IStatus;
 public interface IJobListener {
 	/**
 	 * Notification that a job is about to be run.
-	 * Listeners are allowed to pause, stop, or change the priority of the 
+	 * Listeners are allowed to pause, cancel, or change the priority of the 
 	 * given job before it is started (and as a result may prevent
 	 * the run from actually occurring).
 	 * @param job the job that is about to be run.
@@ -30,13 +30,14 @@ public interface IJobListener {
 	public void aboutToRun(Job job);
 	/**
 	 * Notification that the given job is being added to the queue of 
-	 * scheduled jobs.  Listeners are allowed to pause, stop, or
+	 * scheduled jobs.  Listeners are allowed to pause, cancel, or
 	 * change the priority of the given job before it has a chance to run.
 	 * @param job the job that is about to be added.
 	 */
 	public void aboutToSchedule(Job job);
 	/**
-	 * Notification that a job has stopped running.
+	 * Notification that a job has stopped running, either due to cancelation, successful
+	 * completion, or failure.  The supplied status severity indicates the reason for failure.
 	 * @param job the job that has stopped.
 	 * @param result the result from the job's <code>run</code>
 	 * method.

@@ -10,7 +10,9 @@
  *******************************************************************************/
 package org.eclipse.core.internal.jobs;
 
-import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.internal.plugins.PluginClassLoader;
+import org.eclipse.core.internal.runtime.Policy;
+import org.eclipse.core.runtime.*;
 import org.eclipse.core.runtime.jobs.Job;
 
 public class Worker extends Thread {
@@ -30,14 +32,38 @@ public class Worker extends Thread {
 	 * @see java.lang.Runnable#run()
 	 */
 	public void run() {
-		while ((currentJob = pool.startJob()) != null) {
-			//if job is null we've been shutdown
-			if (currentJob == null)
-				return;
-			IStatus result = currentJob.run(pool.getProgressHandler());
-			pool.endJob(currentJob, result);
-			currentJob = null;
+		try {
+			while ((currentJob = pool.startJob()) != null) {
+				//if job is null we've been shutdown
+				if (currentJob == null)
+					return;
+				IStatus result = Status.OK_STATUS;
+				try {
+					result = currentJob.run(pool.getProgressHandler());
+				} catch (OperationCanceledException e) {
+					result = Status.CANCEL_STATUS;
+				} catch (Exception e) {
+					result = handleException(currentJob, e);
+				} catch (LinkageError e) {
+					result = handleException(currentJob, e);
+				} finally {
+					pool.endJob(currentJob, result);
+					currentJob = null;
+				}
+			}
+		} finally {
+			pool.endWorker(this);
 		}
-		pool.endWorker(this);
+	}
+	private IStatus handleException(Job job, Throwable t) {
+		String id;
+		try {
+			id = ((PluginClassLoader)job.getClass().getClassLoader()).getPluginDescriptor().getUniqueIdentifier();
+		} catch (ClassCastException e) {
+			//ignore and attribute exception to runtime
+			id = Platform.PI_RUNTIME;
+		}
+		String message = Policy.bind("meta.pluginProblems", id); //$NON-NLS-1$
+		return new Status(Status.ERROR, id, Platform.PLUGIN_ERROR, message, t);
 	}
 }

@@ -248,28 +248,26 @@ public class JobManager implements IJobManager {
 	 */
 	public void schedule(Job job, long delay) {
 		Assert.isNotNull(job, "Job is null"); //$NON-NLS-1$
+		synchronized (lock) {
+			allJobs.add(job);
+		}
 		//notify listeners outside sync block
 		IJobListener[] listeners = getJobListeners();
 		for (int i = 0; i < listeners.length; i++) {
 			listeners[i].aboutToSchedule(job);
 		}
 		synchronized (lock) {
-			InternalJob internalJob = (InternalJob) job;
-			int state = internalJob.getState();
-			//job may have been canceled by a listener
-			if (state == Job.CANCELED) {
-				internalJob.setState(Job.NONE);
+			//if the job is removed from allJobs, then it has been canceled
+			if (!allJobs.contains(job))
 				return;
-			}
 			//if job is already paused, add it to the list of paused jobs
-			if (state == Job.PAUSED) {
-				paused.add(internalJob);
+			if (job.getState() == Job.PAUSED) {
+				paused.add(job);
 				return;
 			}
-			internalJob.setState(Job.WAITING);
-			allJobs.add(internalJob);
-			waiting.enqueue(internalJob);
-			pool.jobQueued(internalJob);
+			((InternalJob)job).setState(Job.WAITING);
+			waiting.enqueue(job);
+			pool.jobQueued(job);
 		}
 	}
 	/**
