@@ -18,7 +18,7 @@ import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.jobs.*;
 
 public class JobManager implements IJobManager {
-	private static final JobManager instance = new JobManager();
+	private static JobManager instance;
 	private final ProgressHandler progressHandler = new ProgressHandler(this);
 	private final List listeners = Collections.synchronizedList(new ArrayList());
 	
@@ -49,7 +49,23 @@ public class JobManager implements IJobManager {
 	private boolean running = false;
 
 	public static JobManager getInstance() {
+		if (instance == null) {
+			//ensure we don't start two job managers
+			synchronized (JobManager.class) {
+				if (instance == null) {
+					instance = new JobManager();
+					instance.startup(4);
+				}
+			}
+		}
 		return instance;
+	}
+	/**
+	 * Shuts down the running job manager, if any.
+	 */
+	public static void shutdownIfRunning() {
+		if (instance != null)
+			instance.doShutdown();
 	}
 	private JobManager() {
 	}
@@ -199,7 +215,7 @@ public class JobManager implements IJobManager {
 	 * Shuts down the job manager.  Currently running jobs will be told
 	 * to stop, but worker threads may still continue processing.
 	 */
-	public void shutdown() {
+	private void doShutdown() {
 		synchronized (lock) {
 			running = false;
 			//clean up
@@ -271,7 +287,7 @@ public class JobManager implements IJobManager {
 	/**
 	 * Starts the job manager, with the given number of worker threads.
 	 */
-	public void startup(int workerCount) {
+	private void startup(int workerCount) {
 		synchronized (lock) {
 			running = true;
 			Assert.isLegal(workerCount > 0, "A manager must have workers");

@@ -16,8 +16,10 @@ import java.util.*;
 
 import org.eclipse.core.boot.*;
 import org.eclipse.core.internal.boot.*;
+import org.eclipse.core.internal.jobs.JobManager;
 import org.eclipse.core.internal.plugins.*;
 import org.eclipse.core.runtime.*;
+import org.eclipse.core.runtime.jobs.IJobManager;
 import org.eclipse.core.runtime.model.*;
 
 /**
@@ -351,6 +353,9 @@ public static int getIntegerOption(String option, int defaultValue) {
 		return defaultValue;
 	}
 }
+public static IJobManager getJobManager() {
+	return JobManager.getInstance();
+}
 /**
  * @see Platform#getLocation
  */
@@ -516,6 +521,8 @@ public static IPlatformRunnable loaderGetRunnable(String pluginId, String classN
  */
 public static void loaderShutdown() {
 	assertInitialized();
+	//shutdown all running jobs
+	JobManager.shutdownIfRunning();
 	writeVersion();
 	registry.shutdown(null);
 	clearLockFile();
