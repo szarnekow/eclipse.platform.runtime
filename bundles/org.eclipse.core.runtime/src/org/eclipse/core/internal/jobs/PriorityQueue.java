@@ -92,14 +92,14 @@ public class PriorityQueue {
 			newEntry.setNext(null);
 			return;
 		}
-		if (compare(head, newEntry) < 0) {
+		if (compare(head, newEntry) > 0) {
 			newEntry.setNext(head);
 			head = newEntry;
 			return;
 		}
 		ListEntry greater = head;
 		ListEntry next = greater.next();
-		while (next != null && (compare(newEntry, next) < 0)) {
+		while (next != null && (compare(next, newEntry) <= 0)) {
 			greater = next;
 			next = greater.next();
 		}
