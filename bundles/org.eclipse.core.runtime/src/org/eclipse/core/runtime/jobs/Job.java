@@ -164,6 +164,16 @@ public abstract class Job extends InternalJob {
 	}
 
 	/**
+	 * If this job is being run as a child of another job, this method returns the result
+	 * from the parent job's run method.  Otherwise, this method returns null.
+	 * 
+	 * @return The result from the parent job's run method, or null if this job
+	 * is not being run as a child job
+	 */
+	public final IStatus getParentResult() {
+		return super.getParentResult();
+	}
+	/**
 	 * Returns the priority of this job.  The priority is used as a hint when the job
 	 * is scheduled to be run.
 	 * 
