@@ -160,11 +160,12 @@ public IPath append(IPath tail) {
 		return this;
 	}
 	int myLen = segments.length;
-	String[] tailSegments = tail.segments();
-	int tailLen = tailSegments.length;
+	int tailLen = tail.segmentCount();
 	String[] newSegments = new String[myLen+tailLen];
 	System.arraycopy(segments, 0, newSegments, 0, myLen);
-	System.arraycopy(tailSegments, 0, newSegments, myLen, tailLen);
+	for (int i = 0; i < tailLen; i++) {
+		newSegments[myLen+i] = tail.segment(i);
+	}
 	//use my leading separators and the tail's trailing separator
 	Path result = new Path(device, newSegments, 
 		(separators & (HAS_LEADING | IS_UNC)) | (tail.hasTrailingSeparator() ? HAS_TRAILING : 0));
@@ -172,7 +173,6 @@ public IPath append(IPath tail) {
 	if (tailFirstSegment.equals("..") || tailFirstSegment.equals(".")) {
 		result.canonicalize();
 	}
-	result.canonicalize();
 	return result;
 }
 /**
@@ -185,9 +185,14 @@ public IPath append(IPath tail) {
  * @return the canonicalized path
  */
 private void canonicalize() {
-	//could possibly be optimized
-	if (segments.length > 1) {
-		collapseParentReferences();
+	//look for segments that need canonicalizing
+	for (int i = 0, max = segments.length; i < max; i++) {
+		String segment = segments[i];
+		if (segment.charAt(0) == '.' && (segment.equals("..") || segment.equals("."))) {
+			//path needs to be canonicalized
+			collapseParentReferences();
+			return;
+		}
 	}
 }
 /* (Intentionally not included in javadoc)
@@ -204,39 +209,37 @@ public Object clone() {
  * Destructively removes all occurrences of ".." segments from this path.
  */
 private void collapseParentReferences() {
-	Stack stack = new Stack();
-	for (int i = 0; i < segments.length; i++) {
+	int segmentCount = segments.length;
+	String[] stack = new String[segmentCount];
+	int stackPointer = 0;
+	for (int i = 0; i < segmentCount; i++) {
 		String segment = segments[i];
 		if (segment.equals("..")) {
-			if (stack.isEmpty()) {
+			if (stackPointer==0) {
 				// if the stack is empty we are going out of our scope 
 				// so we need to accumulate segments.  But only if the original
 				// path is relative.  If it is absolute then we can't go any higher than
 				// root so simply toss the .. references.
-				if (!isAbsolute())
-					stack.push(segment);
+				if (!isAbsolute())					
+					stack[stackPointer++] = segment;//stack push
 			} else {
 				// if the top is '..' then we are accumulating segments so don't pop
-				if (stack.peek().equals(".."))
-					stack.push("..");
+				if ("..".equals(stack[stackPointer-1]))
+					stack[stackPointer++] = "..";
 				else
-					stack.pop();
+					stackPointer--;//stack pop
 			}
 			//collapse current references
 		} else
 			if (!segment.equals(".") || (i == 0 && !isAbsolute()))
-				stack.push(segment);
+				stack[stackPointer++] = segment;//stack push
 	}
 	//if the number of segments hasn't changed, then no modification needed
-	int stackSize = stack.size();
-	if (stackSize == segments.length)
+	if (stackPointer== segmentCount)
 		return;
 	//build the new segment array backwards by popping the stack
-	String[] newSegments = new String[stackSize];
-	int insert = newSegments.length-1;
-	while (!stack.isEmpty()) {
-		newSegments[insert--] = (String)stack.pop();
-	}
+	String[] newSegments = new String[stackPointer];
+	System.arraycopy(stack, 0, newSegments, 0, stackPointer);
 	this.segments = newSegments;
 }
 /*
