@@ -285,7 +285,7 @@ public class DataArea {
 		keyringTimeStamp = new File(keyringFile).lastModified();
 	}
 	public void setKeyringFile(String keyringFile) {
-		if (keyringFile != null)
+		if (this.keyringFile != null)
 			throw new IllegalStateException(Policy.bind("meta.keyringFileAlreadySpecified", this.keyringFile));
 		this.keyringFile = keyringFile;
 	}
