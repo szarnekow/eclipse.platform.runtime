@@ -37,14 +37,14 @@ import junit.framework.TestResult;
  *	</code>
  * Note that only one operation can be tested at a time with this mechanism.
  *
- * If an instance of this class is run using a LoggingPerformanceTestResult,
+ * If an instance of this class is run using a HTMLPerformanceTestResult,
  * an HTML log file will be maintained of all timing and garbage collecting,
  * in addition to any messages added using the log() method.  In the absence
  * of a logging test result, all log events are written to the standard output.
  */
 public abstract class CorePerformanceTest extends EclipseWorkspaceTest {
 	protected long benchStart;
-	protected LoggingPerformanceTestResult logger = null;
+	protected HTMLPerformanceTestResult logger = null;
 	protected PerformanceTestResult result = null;
 
 	public CorePerformanceTest() {
@@ -52,18 +52,8 @@ public abstract class CorePerformanceTest extends EclipseWorkspaceTest {
 	public CorePerformanceTest(String name) {
 		super(name);
 	}
-	protected PerformanceTestResult defaultTest() {
+	protected TestResult createResult() {
 		return new PerformanceTestResult();
-	}
-	/**
-	 * Logs or writes string to console.
-	 */
-	public void perfLog(String s) {
-		if (logger != null) {
-			logger.log(s);
-		} else {
-			System.out.println(s);
-		}
 	}
 	/**
 	 * A convenience method to run this test, collecting the results with a
@@ -72,23 +62,20 @@ public abstract class CorePerformanceTest extends EclipseWorkspaceTest {
 	 * @see PerformanceTestResult
 	 */
 	public TestResult run() {
-		PerformanceTestResult test = defaultTest();
-		run(test);
-		return test;
+		TestResult result = createResult();
+		run(result);
+		return result;
 	}
 	/**
 	 * Runs the test case and collects the results in a PerformanceTestResult.
 	 * This is the template method that defines the control flow
 	 * for running a test case.
 	 */
-	public void run(PerformanceTestResult test) {
-		result = test;
-
-		if (test instanceof LoggingPerformanceTestResult) {
-			logger = (LoggingPerformanceTestResult) test;
+	public void run(TestResult result) {
+		if (result instanceof PerformanceTestResult) {
+			this.result = (PerformanceTestResult)result;
 		}
-
-		super.run(test);
+		super.run(result);
 	}
 	protected void startBench() {
 		for (int i = 0; i < 20; ++i) {
@@ -102,7 +89,8 @@ public abstract class CorePerformanceTest extends EclipseWorkspaceTest {
 	 * and starts it running.
 	 */
 	protected void startTimer(String timerName) {
-		result.startTimer(timerName);
+		if (result != null)
+			result.startTimer(timerName);
 	}
 	protected void stopBench(String benchName, int numOperations) {
 		long duration = System.currentTimeMillis() - benchStart;
@@ -122,6 +110,7 @@ public abstract class CorePerformanceTest extends EclipseWorkspaceTest {
 	 * Tell the result to stop the timer with the given name.
 	 */
 	protected void stopTimer(String timerName) {
-		result.stopTimer(timerName);
+		if (result != null)
+			result.stopTimer(timerName);
 	}
 }

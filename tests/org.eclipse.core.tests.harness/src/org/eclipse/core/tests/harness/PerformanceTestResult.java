@@ -34,13 +34,13 @@ public class PerformanceTestResult extends TestResult {
 	 * Informs the result that a test was completed.
 	 */
 	public synchronized void endTest(Test test) {
+		stopTimers();
 		print();
 	}
 	/**
 	 * Prints the test result
 	 */
-	public synchronized void print() {
-		stopTimers();
+	protected synchronized void print() {
 		printHeader(output);
 		printErrors(output);
 		printFailures(output);
@@ -104,7 +104,7 @@ public class PerformanceTestResult extends TestResult {
 		// print out all timing results to the console
 		for (Iterator it = timerList.iterator(); it.hasNext();) {
 			PerformanceTimer timer = (PerformanceTimer) it.next();
-			out.println("Timing " + timer.getName() + " : " + timer.getElapsedTime() + " ms ");
+			out.println("Timing " + timer.getName() + " : " + timer.getTotalElapsedTime() + " ms ");
 		}
 	}
 	/**
@@ -112,7 +112,6 @@ public class PerformanceTestResult extends TestResult {
 	 */
 	public synchronized void startTest(Test test) {
 		super.startTest(test);
-		System.out.print(".");
 	}
 	/**
 	 * Start the timer with the given name.  If the timer has already

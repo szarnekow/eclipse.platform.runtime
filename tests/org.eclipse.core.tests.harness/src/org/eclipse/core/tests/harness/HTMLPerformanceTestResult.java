@@ -16,11 +16,11 @@ import java.util.Iterator;
 
 import junit.framework.TestFailure;
 /**
- * A LoggingPerformanceTestResult adds the ability to create an HTML or
+ * A HTMLPerformanceTestResult adds the ability to create an HTML or
  * other output file, and have test results written to that file instead
  * of the standard output.
  */
-public class LoggingPerformanceTestResult extends PerformanceTestResult {
+public class HTMLPerformanceTestResult extends PerformanceTestResult {
 	private static PrintWriter createWriter(File logFile) {
 		try {
 			PrintWriter writer = new PrintWriter(new FileOutputStream(logFile), true);
@@ -30,7 +30,7 @@ public class LoggingPerformanceTestResult extends PerformanceTestResult {
 			return new PrintWriter(System.out, true);
 		}
 	}
-	public LoggingPerformanceTestResult(File logFile) {
+	public HTMLPerformanceTestResult(File logFile) {
 		super(createWriter(logFile));
 		printHTMLHeader(output);
 	}
@@ -127,27 +127,8 @@ public class LoggingPerformanceTestResult extends PerformanceTestResult {
 		// print out all timing results to the console
 		for (Iterator it = timerList.iterator(); it.hasNext();) {
 			PerformanceTimer timer = (PerformanceTimer) it.next();
-			out.println("<li>" + timer.getName() + " : " + timer.getElapsedTime() + " ms</li>");
+			out.println("<li>" + timer.getName() + " : " + timer.getTotalElapsedTime() + " ms</li>");
 		}
 		out.println("</ul>");
-	}
-	/**
-	 * Start the timer with the given name.  If the timer has already
-	 * been created, send it a startTiming message.  If not, create it
-	 * and send the new timer the startTiming message.
-	 */
-
-	public synchronized void startTimer(String timerName) {
-		super.startTimer(timerName);
-		//log("Starting timer: " + timerName);
-	}
-	/**
-	 * Look up the timer with the given name and send it a stopTiming
-	 * message.  If the timer does not exist, report an error.
-	 */
-
-	public synchronized void stopTimer(String timerName) {
-		super.stopTimer(timerName);
-		//log("Stopping timer: " + timerName);
 	}
 }
