@@ -57,21 +57,21 @@ public class JobManager implements IJobManager {
 	/**
 	 * Jobs that are currently running.
 	 */
-	private final HashSet running = new HashSet(10);
+	private final HashSet running;
 
 	/**
 	 * Jobs that are sleeping.  Some sleeping jobs are scheduled to wake
 	 * up at a given start time, while others will sleep indefinitely until woken.
 	 */
-	private final PriorityQueue sleeping = new PriorityQueue();
+	private final JobQueue sleeping;
 	/**
 	 * jobs that are waiting to be run
 	 */
-	private final PriorityQueue waiting = new PriorityQueue();
+	private final JobQueue waiting;
 
 	public static synchronized JobManager getInstance() {
 		if (instance == null) {
-			instance = new JobManager();
+			new JobManager();
 		}
 		return instance;
 	}
@@ -81,15 +81,19 @@ public class JobManager implements IJobManager {
 		instance = null;
 	}
 	private JobManager() {
+		instance = this;
 		synchronized (lock) {
 			alive = true;
+			waiting = new JobQueue();
+			sleeping = new JobQueue();
+			running = new HashSet(10);
 			pool = new WorkerPool(this);
 		}
 	}
 	/* (non-Javadoc)
-	 * @see org.eclipse.core.runtime.jobs.IJobManager#addJobListener(org.eclipse.core.runtime.jobs.IJobListener)
+	 * @see org.eclipse.core.runtime.jobs.IJobManager#addJobListener(org.eclipse.core.runtime.jobs.IJobChangeListener)
 	 */
-	public void addJobListener(IJobListener listener) {
+	public void addJobChangeListener(IJobChangeListener listener) {
 		jobListeners.add(listener);
 	}
 	/**
@@ -195,7 +199,7 @@ public class JobManager implements IJobManager {
 	 */
 	protected void endJob(Job job, IStatus result) {
 		InternalJob internalJob = (InternalJob)job;
-		ListEntry blocked = null;
+		InternalJob blocked = null;
 		synchronized (lock) {
 			//if the job is finishing asynchronously, there is nothing more to do for now
 			if (result == Job.ASYNC_FINISH) {
@@ -205,15 +209,15 @@ public class JobManager implements IJobManager {
 			internalJob.setState(Job.NONE);
 			internalJob.setMonitor(null);
 			running.remove(job);
-			blocked = job.next();
-			job.setNext(null);
+			blocked = internalJob.previous();
+			internalJob.setPrevious(null);
 		}
 		//add any blocked jobs back to the wait queue
 		while (blocked != null) {
-			ListEntry next = blocked.next();
+			InternalJob previous = blocked.previous();
 			waiting.enqueue(blocked);
-			pool.jobQueued((InternalJob)blocked);
-			blocked = next;
+			pool.jobQueued(blocked);
+			blocked = previous;
 		}
 		//notify listeners outside sync block
 		jobListeners.done(job, result);
@@ -223,21 +227,19 @@ public class JobManager implements IJobManager {
 	 * @see org.eclipse.core.runtime.jobs.IJobManager#find(java.lang.String)
 	 */
 	public Job[] find(String family) {
-		ArrayList members = select(family);
+		List members = select(family);
 		return (Job[]) members.toArray(new Job[members.size()]);
 	}
 	/**
 	 * Returns a running job whose scheduling rule conflicts with the scheduling rule
 	 * of the given waiting job.  Returns null if there are no conflicting jobs.
 	 */
-	private Job findBlockingJob(Job waiting) {
-		ISchedulingRule waitingRule = waiting.getRule();
-		if (waitingRule == null)
+	private InternalJob findBlockingJob(InternalJob waiting) {
+		if (waiting.getRule() == null)
 			return null;
 		for (Iterator it = running.iterator(); it.hasNext();) {
 			Job job = (Job) it.next();
-			ISchedulingRule testRule = job.getRule();
-			if (testRule != null && testRule.isConflicting(waitingRule))
+			if (waiting.isConflicting(job))
 				return job;
 		}
 		return null;
@@ -266,26 +268,25 @@ public class JobManager implements IJobManager {
 				job = (InternalJob)sleeping.peek();
 			}
 			//process the wait queue until we find a job whose rules are satisfied.
-			Job next = (Job)waiting.dequeue();
-			while (next != null) {
-				Job blocker = findBlockingJob(next);
+			InternalJob next;
+			while ((next = waiting.dequeue()) != null) {
+				InternalJob blocker = findBlockingJob(next);
 				if (blocker == null)
 					break;
 				//queue this job after the job that's blocking it
 				blocker.addLast(next);
-				next = (Job)waiting.dequeue();
 			}
 			//the job to run must be in the running list before we exit
 			//the sync block, otherwise two jobs with conflicting rules could start at once
 			if (next != null)
 				running.add(next);
-			return next;
+			return (Job)next;
 		}
 	}
 	/* (non-Javadoc)
-	 * @see org.eclipse.core.runtime.jobs.IJobManager#removeJobListener(org.eclipse.core.runtime.jobs.IJobListener)
+	 * @see org.eclipse.core.runtime.jobs.IJobManager#removeJobListener(org.eclipse.core.runtime.jobs.IJobChangeListener)
 	 */
-	public void removeJobListener(IJobListener listener) {
+	public void removeJobChangeListener(IJobChangeListener listener) {
 		jobListeners.remove(listener);
 	}
 	/* (non-Javadoc)
@@ -313,18 +314,21 @@ public class JobManager implements IJobManager {
 	/**
 	 * Adds all family members in the list of jobs to the collection
 	 */
-	private void select(ArrayList members, String family, Job job) {
-		while (job != null) {
+	private void select(List members, String family, Job firstJob) {
+		if (firstJob == null)
+			return;
+		Job job = firstJob;
+		do {
 			if (job.belongsTo(family))
 				members.add(job);
-			job = (Job)job.next();
-		}
+			job = (Job)((InternalJob)job).previous();
+		} while (job != null && job != firstJob);
 	}
 	/**
 	 * Returns a list of all jobs known to the job manager that belong to the given family.
 	 */
-	private ArrayList select(String family) {
-		ArrayList members = new ArrayList();
+	private List select(String family) {
+		List members = new ArrayList();
 		synchronized (lock) {
 			for (Iterator it = running.iterator(); it.hasNext();) {
 				select(members, family, (Job)it.next());
@@ -444,6 +448,12 @@ public class JobManager implements IJobManager {
 	 * @see org.eclipse.core.runtime.jobs.IJobManager#wait(org.eclipse.core.runtime.jobs.Job, org.eclipse.core.runtime.IProgressMonitor)
 	 */
 	public void wait(Job job, IProgressMonitor monitor) {
+		synchronized (lock) {
+			//compute set of all jobs that must run before this one
+			//add a listener that removes jobs from the blocking set when they finish
+			
+		}
+		//wait until listener notifies this thread.
 	}
 	/* (non-Javadoc)
 	 * @see IJobManager#wait(String, IProgressMonitor)

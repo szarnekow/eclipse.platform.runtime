@@ -12,44 +12,44 @@ package org.eclipse.core.internal.jobs;
 import java.util.*;
 
 import org.eclipse.core.runtime.IStatus;
-import org.eclipse.core.runtime.jobs.IJobListener;
+import org.eclipse.core.runtime.jobs.IJobChangeListener;
 import org.eclipse.core.runtime.jobs.Job;
 
 /**
  * Responsible for notifying all job listeners about job lifecycle events.  Uses a
  * specialized iterator to ensure the complex iteration logic is contained in one place.
  */
-public class JobListeners implements IJobListener {
+public class JobListeners implements IJobChangeListener {
 	interface IListenerDoit {
-		public void notify(IJobListener listener, Job job, IStatus result);
+		public void notify(IJobChangeListener listener, Job job, IStatus result);
 	}
 	private final IListenerDoit aboutToRun = new IListenerDoit() {
-		public void notify(IJobListener listener, Job job, IStatus result) {
+		public void notify(IJobChangeListener listener, Job job, IStatus result) {
 			listener.aboutToRun(job);
 		}
 	};
 	private final IListenerDoit awake = new IListenerDoit() {
-		public void notify(IJobListener listener, Job job, IStatus result) {
+		public void notify(IJobChangeListener listener, Job job, IStatus result) {
 			listener.awake(job);
 		}
 	};
 	private final IListenerDoit done = new IListenerDoit() {
-		public void notify(IJobListener listener, Job job, IStatus result) {
+		public void notify(IJobChangeListener listener, Job job, IStatus result) {
 			listener.done(job, result);
 		}
 	};
 	private final IListenerDoit running = new IListenerDoit() {
-		public void notify(IJobListener listener, Job job, IStatus result) {
+		public void notify(IJobChangeListener listener, Job job, IStatus result) {
 			listener.running(job);
 		}
 	};
 	private final IListenerDoit scheduled = new IListenerDoit() {
-		public void notify(IJobListener listener, Job job, IStatus result) {
+		public void notify(IJobChangeListener listener, Job job, IStatus result) {
 			listener.scheduled(job);
 		}
 	};
 	private final IListenerDoit sleeping = new IListenerDoit() {
-		public void notify(IJobListener listener, Job job, IStatus result) {
+		public void notify(IJobChangeListener listener, Job job, IStatus result) {
 			listener.sleeping(job);
 		}
 	};
@@ -67,7 +67,7 @@ public class JobListeners implements IJobListener {
 		int size = global.size();
 		for (int i = 0; i < size; i++) {
 			//note: tolerate concurrent modification
-			IJobListener listener = (IJobListener) global.get(i);
+			IJobChangeListener listener = (IJobChangeListener) global.get(i);
 			if (listener != null)
 				doit.notify(listener, job, result);
 		}
@@ -77,16 +77,16 @@ public class JobListeners implements IJobListener {
 			size = local.size();
 			for (int i = 0; i < size; i++) {
 				//note: tolerate concurrent modification
-				IJobListener listener = (IJobListener) global.get(i);
+				IJobChangeListener listener = (IJobChangeListener) global.get(i);
 				if (listener != null)
 					doit.notify(listener, job, result);
 			}
 		}
 	}
-	public void add(IJobListener listener) {
+	public void add(IJobChangeListener listener) {
 		global.add(listener);
 	}
-	public void remove(IJobListener listener) {
+	public void remove(IJobChangeListener listener) {
 		global.remove(listener);
 	}
 	public void aboutToRun(Job job) {
