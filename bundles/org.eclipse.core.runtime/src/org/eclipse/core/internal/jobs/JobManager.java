@@ -12,7 +12,6 @@ package org.eclipse.core.internal.jobs;
 
 import java.util.*;
 
-import org.eclipse.core.internal.locks.Queue;
 import org.eclipse.core.internal.runtime.Assert;
 import org.eclipse.core.runtime.*;
 import org.eclipse.core.runtime.jobs.*;
@@ -41,6 +40,8 @@ public class JobManager implements IJobManager {
 	private WorkerPool pool;
 
 	private final ProgressHandler progressHandler = new ProgressHandler(this);
+	
+	private final LockManager lockManager = new LockManager();
 
 	private boolean running = false;
 
@@ -169,6 +170,18 @@ public class JobManager implements IJobManager {
 			}
 		}
 	}
+	/* (non-Javadoc)
+	 * @see IJobManager#newJobFamily(java.lang.String)
+	 */
+	public IJobFamily newJobFamily(int priority, boolean exclusive) {
+		return new JobFamily(priority, exclusive);
+	}
+	/* (non-Javadoc)
+	 * @see IJobManager#newLock(java.lang.String)
+	 */
+	public ILock newLock() {
+		return lockManager.newLock();
+	}
 	/**
 	 * Request to pause the given job. Return true if the job was successfully paused.
 	 * @param job
@@ -187,7 +200,7 @@ public class JobManager implements IJobManager {
 		return true;
 	}
 	/* (non-Javadoc)
-	 * @see org.eclipse.core.runtime.jobs.IJobManager#pause(java.lang.String)
+	 * @see IJobManager#pause(java.lang.String)
 	 */
 	public void pause(String family) {
 	}
