@@ -11,10 +11,9 @@ package org.eclipse.core.internal.jobs;
 
 import java.util.*;
 
+import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.jobs.*;
-import org.eclipse.core.runtime.jobs.IJobListener;
-import org.eclipse.core.runtime.jobs.Job;
 
 /**
  * Internal implementation class for jobs.
@@ -26,6 +25,7 @@ public abstract class InternalJob extends ListEntry implements Comparable {
 	private boolean asyncFinish = false;
 	private final int jobNumber = nextJobNumber++;
 	private List listeners;
+	private IProgressMonitor monitor;
 	private int priority = Job.LONG;
 	private ISchedulingRule schedulingRule;
 	/**
@@ -37,12 +37,12 @@ public abstract class InternalJob extends ListEntry implements Comparable {
 	/* (non-Javadoc)
 	 * @see Job#addJobListener(IJobListener)
 	 */
-	public void addJobListener(IJobListener listener) {
+	protected void addJobListener(IJobListener listener) {
 		if (listeners == null)
 			listeners = Collections.synchronizedList(new ArrayList(2));
 		listeners.add(listener);
 	}
-	public boolean cancel() {
+	protected boolean cancel() {
 		return manager.cancel((Job) this);
 	}
 	public final int compareTo(Object otherJob) {
@@ -59,13 +59,16 @@ public abstract class InternalJob extends ListEntry implements Comparable {
 	 * Returns the job listeners that are only listening to this job.  Returns null
 	 * if this job has no listeners.
 	 */
-	public List getListeners() {
+	final List getListeners() {
 		return listeners;
+	}
+	final IProgressMonitor getMonitor() {
+		return monitor;
 	}
 	protected int getPriority() {
 		return priority;
 	}
-	public ISchedulingRule getRule() {
+	protected ISchedulingRule getRule() {
 		return schedulingRule;
 	}
 	/*package*/
@@ -81,17 +84,20 @@ public abstract class InternalJob extends ListEntry implements Comparable {
 	/* (non-Javadoc)
 	 * @see Job#removeJobListener(IJobListener)
 	 */
-	public void removeJobListener(IJobListener listener) {
+	protected void removeJobListener(IJobListener listener) {
 		if (listeners != null)
 			listeners.remove(listener);
 		if (listeners.isEmpty())
 			listeners = null;
 	}
-	public void schedule(long delay) {
+	protected void schedule(long delay) {
 		manager.schedule(this, delay);
 	}
-	public void setAsyncFinish() {
+	void setAsyncFinish() {
 		asyncFinish = true;
+	}
+	final void setMonitor(IProgressMonitor monitor) {
+		this.monitor = monitor;
 	}
 	protected void setPriority(int NewPriority) {
 		manager.setPriority(this, NewPriority);

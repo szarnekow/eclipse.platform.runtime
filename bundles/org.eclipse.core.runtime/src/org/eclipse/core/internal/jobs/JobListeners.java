@@ -16,72 +16,95 @@ import org.eclipse.core.runtime.jobs.IJobListener;
 import org.eclipse.core.runtime.jobs.Job;
 
 /**
- * Responsible for notifying all job listeners about job lifecycle events.
+ * Responsible for notifying all job listeners about job lifecycle events.  Uses a
+ * specialized iterator to ensure the complex iteration logic is contained in one place.
  */
 public class JobListeners implements IJobListener {
+	interface IListenerDoit {
+		public void notify(IJobListener listener, Job job, IStatus result);
+	}
+	private final IListenerDoit aboutToRun = new IListenerDoit() {
+		public void notify(IJobListener listener, Job job, IStatus result) {
+			listener.aboutToRun(job);
+		}
+	};
+	private final IListenerDoit awake = new IListenerDoit() {
+		public void notify(IJobListener listener, Job job, IStatus result) {
+			listener.awake(job);
+		}
+	};
+	private final IListenerDoit done = new IListenerDoit() {
+		public void notify(IJobListener listener, Job job, IStatus result) {
+			listener.done(job, result);
+		}
+	};
+	private final IListenerDoit running = new IListenerDoit() {
+		public void notify(IJobListener listener, Job job, IStatus result) {
+			listener.running(job);
+		}
+	};
+	private final IListenerDoit scheduled = new IListenerDoit() {
+		public void notify(IJobListener listener, Job job, IStatus result) {
+			listener.scheduled(job);
+		}
+	};
+	private final IListenerDoit sleeping = new IListenerDoit() {
+		public void notify(IJobListener listener, Job job, IStatus result) {
+			listener.sleeping(job);
+		}
+	};
 	/**
 	 * The global job listeners.
 	 */
 	private final List global = Collections.synchronizedList(new ArrayList());
-	
-	public void aboutToRun(Job job) {
-		for (Iterator it = global.iterator(); it.hasNext();)
-			((IJobListener) it.next()).aboutToRun(job);
-		List local = job.getListeners();
+
+	/**
+	 * Process the given doit for all global listeners and all local listeners
+	 * on the given job.
+	 */
+	private void doNotify(IListenerDoit doit, Job job, IStatus result) {
+		//notify all global listeners
+		int size = global.size();
+		for (int i = 0; i < size; i++) {
+			//note: tolerate concurrent modification
+			IJobListener listener = (IJobListener) global.get(i);
+			if (listener != null)
+				doit.notify(listener, job, result);
+		}
+		//notify all local listeners
+		List local = ((InternalJob) job).getListeners();
 		if (local != null) {
-			for (Iterator it = local.iterator(); it.hasNext();)
-				((IJobListener) it.next()).aboutToRun(job);
+			size = local.size();
+			for (int i = 0; i < size; i++) {
+				//note: tolerate concurrent modification
+				IJobListener listener = (IJobListener) global.get(i);
+				if (listener != null)
+					doit.notify(listener, job, result);
+			}
 		}
 	}
 	public void add(IJobListener listener) {
 		global.add(listener);
 	}
-	public void awake(Job job) {
-		for (Iterator it = global.iterator(); it.hasNext();)
-			((IJobListener) it.next()).awake(job);
-		List local = job.getListeners();
-		if (local != null) {
-			for (Iterator it = local.iterator(); it.hasNext();)
-				((IJobListener) it.next()).awake(job);
-		}
-	}
-	public void done(Job job, IStatus result) {
-		for (Iterator it = global.iterator(); it.hasNext();)
-			((IJobListener) it.next()).done(job, result);
-		List local = job.getListeners();
-		if (local != null) {
-			for (Iterator it = local.iterator(); it.hasNext();)
-				((IJobListener) it.next()).done(job, result);
-		}
-	}
 	public void remove(IJobListener listener) {
 		global.remove(listener);
 	}
+	public void aboutToRun(Job job) {
+		doNotify(aboutToRun, job, null);
+	}
+	public void awake(Job job) {
+		doNotify(awake, job, null);
+	}
+	public void done(Job job, IStatus result) {
+		doNotify(done, job, result);
+	}
 	public void running(Job job) {
-		for (Iterator it = global.iterator(); it.hasNext();)
-			((IJobListener) it.next()).running(job);
-		List local = job.getListeners();
-		if (local != null) {
-			for (Iterator it = local.iterator(); it.hasNext();)
-				((IJobListener) it.next()).running(job);
-		}
+		doNotify(running, job, null);
 	}
 	public void scheduled(Job job) {
-		for (Iterator it = global.iterator(); it.hasNext();)
-			((IJobListener) it.next()).scheduled(job);
-		List local = job.getListeners();
-		if (local != null) {
-			for (Iterator it = local.iterator(); it.hasNext();)
-				((IJobListener) it.next()).scheduled(job);
-		}
+		doNotify(scheduled, job, null);
 	}
 	public void sleeping(Job job) {
-		for (Iterator it = global.iterator(); it.hasNext();)
-			((IJobListener) it.next()).sleeping(job);
-		List local = job.getListeners();
-		if (local != null) {
-			for (Iterator it = local.iterator(); it.hasNext();)
-				((IJobListener) it.next()).sleeping(job);
-		}
+		doNotify(sleeping, job, null);
 	}
 }

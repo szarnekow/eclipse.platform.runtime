@@ -43,7 +43,7 @@ public class Worker extends Thread {
 					return;
 				IStatus result = Status.OK_STATUS;
 				try {
-					result = currentJob.run(pool.getProgressHandler());
+					result = currentJob.run(pool.createMonitor(currentJob));
 				} catch (OperationCanceledException e) {
 					result = Status.CANCEL_STATUS;
 				} catch (Exception e) {

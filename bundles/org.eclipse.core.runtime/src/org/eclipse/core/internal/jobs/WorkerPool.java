@@ -57,8 +57,8 @@ class WorkerPool {
 		if (JobManager.DEBUG)
 			debug("worker removed from pool: " + worker); //$NON-NLS-1$
 	}
-	protected IProgressMonitor getProgressHandler() {
-		return manager.getProgressHandler();
+	protected IProgressMonitor createMonitor(Job job) {
+		return manager.createMonitor(job);
 	}
 	/**
 	 * Notfication that a job has been added to the queue.  Wake a worker,
