@@ -11,6 +11,7 @@
 package org.eclipse.core.runtime.jobs;
 
 import org.eclipse.core.internal.jobs.InternalJob;
+import org.eclipse.core.runtime.*;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
 
@@ -39,37 +40,13 @@ import org.eclipse.core.runtime.IStatus;
  * 
  */
 public abstract class Job extends InternalJob {
-	/* Job priorities */
-	/** 
-	 * Job priority constant (value 10) for interactive jobs.
-	 * Interactive jobs generally have priority over all other jobs.
-	 * Interactive jobs must be relatively fast running in order to avoid
-	 * blocking other interactive jobs from running.
-	 * 
-	 * @see IJobManager#getPriority
-	 * @see IJobManager#setPriority
+	
+	/**
+	 * The job status return value that is be used to indicate asynchronous
+	 * job completion.
 	 * @see Job#run
 	 */
-	public static final int INTERACTIVE = 10;
-	/** 
-	 * Job priority constant (value 20) for short background jobs.
-	 * Short background jobs are jobs that typically complete within a second,
-	 * but may take longer in some cases.  Short jobs are given priority
-	 * over all other jobs except interactive jobs.
-	 * 
-	 * @see IJobManager#getPriority
-	 * @see IJobManager#setPriority
-	 * @see Job#run
-	 */
-	public static final int SHORT = 20;
-	/** 
-	 * Job priority constant (value 30) for long-running background jobs.
-	 * 
-	 * see IJobManager#getPriority
-	 * @see IJobManager#setPriority
-	 * @see Job#run
-	 */
-	public static final int LONG = 30;
+	public static final IStatus ASYNC_FINISH = new Status(IStatus.OK, Platform.PI_RUNTIME, 1, "", null);//$NON-NLS-1$
 
 	/** 
 	 * Job priority constant (value 40) for build jobs.  Build jobs are
@@ -92,6 +69,26 @@ public abstract class Job extends InternalJob {
 	 * @see Job#run
 	 */
 	public static final int DECORATE = 50;
+	/* Job priorities */
+	/** 
+	 * Job priority constant (value 10) for interactive jobs.
+	 * Interactive jobs generally have priority over all other jobs.
+	 * Interactive jobs must be relatively fast running in order to avoid
+	 * blocking other interactive jobs from running.
+	 * 
+	 * @see IJobManager#getPriority
+	 * @see IJobManager#setPriority
+	 * @see Job#run
+	 */
+	public static final int INTERACTIVE = 10;
+	/** 
+	 * Job priority constant (value 30) for long-running background jobs.
+	 * 
+	 * see IJobManager#getPriority
+	 * @see IJobManager#setPriority
+	 * @see Job#run
+	 */
+	public static final int LONG = 30;
 
 	/** 
 	 * Job state code (value 4) indicating that a job is not 
@@ -101,6 +98,24 @@ public abstract class Job extends InternalJob {
 	 * @see IJobManager#getState
 	 */
 	public static final int NONE = -1;
+
+	/** 
+	 * Job state code (value 5) indicating that a job is currently running
+	 * 
+	 * @see IJobManager#getState
+	 */
+	public static final int RUNNING = 3;
+	/** 
+	 * Job priority constant (value 20) for short background jobs.
+	 * Short background jobs are jobs that typically complete within a second,
+	 * but may take longer in some cases.  Short jobs are given priority
+	 * over all other jobs except interactive jobs.
+	 * 
+	 * @see IJobManager#getPriority
+	 * @see IJobManager#setPriority
+	 * @see Job#run
+	 */
+	public static final int SHORT = 20;
 
 	/** 
 	 * Job state code (value 3) indicating that a job is sleeping.
@@ -117,22 +132,14 @@ public abstract class Job extends InternalJob {
 	 */
 	public static final int WAITING = 2;
 
-	/** 
-	 * Job state code (value 5) indicating that a job is currently running
-	 * 
-	 * @see IJobManager#getState
-	 */
-	public static final int RUNNING = 3;
-
 	/**
-	 * Adds a job to be run after this job has finished running.  No guarantee is made about
-	 * the order of execution of the children.
+	 * Registers a job listener with this job
+	 * Has no effect if an identical listener is already registered.
 	 * 
-	 * @param job the job to run after this job is finished.
-	 * @return
+	 * @param listener the listener to be added.
 	 */
-	public void addChild(Job job) {
-		super.addChild(job);
+	public final void addJobListener(IJobListener listener) {
+		super.addJobListener(listener);
 	}
 	/**
 	 * Returns whether this job belongs to the given family.  Job families are
@@ -162,16 +169,16 @@ public abstract class Job extends InternalJob {
 	public final boolean cancel() {
 		return super.cancel();
 	}
-
 	/**
-	 * If this job is being run as a child of another job, this method returns the result
-	 * from the parent job's run method.  Otherwise, this method returns null.
+	 * Jobs that complete their execution asynchronously must indicate when they
+	 * are finished by calling this method.  This method has no effect if called on
+	 * a job that has not indicated that it is executing asynchronously.
 	 * 
-	 * @return The result from the parent job's run method, or null if this job
-	 * is not being run as a child job
+	 * @param result a status object indicating the result of the job's execution.
+	 * @see #run
 	 */
-	public final IStatus getParentResult() {
-		return super.getParentResult();
+	protected final void done(IStatus result) {
+		super.done(result);
 	}
 	/**
 	 * Returns the priority of this job.  The priority is used as a hint when the job
@@ -182,6 +189,16 @@ public abstract class Job extends InternalJob {
 	 */
 	public final int getPriority() {
 		return super.getPriority();
+	}
+	/**
+	 * Returns the scheduling rule for this job.  Returns null if this job has no
+	 * scheduling rule.
+	 * 
+	 * @return the scheduling rule for this job
+	 * @see ISchedulingRule
+	 */
+	public final ISchedulingRule getRule() {
+		return super.getRule();
 	}
 	/**
 	 * Returns the state of the job. Result will be one of:
@@ -197,41 +214,33 @@ public abstract class Job extends InternalJob {
 		return super.getState();
 	}
 	/**
-	 * Removes a child job from this job.  Has no effect if the job is not already a child
-	 * of this job.
+	 * Removes a job listener from this job.
+	 * Has no effect if an identical listener is not already registered.
 	 * 
-	 * @param job the child job to remove
-	 * @see addChild
+	 * @param listener the listener to be removed.
 	 */
-	public void removeChild(Job job) {
-		super.removeChild(job);
+	public final void removeJobListener(IJobListener listener) {
+		super.removeJobListener(listener);
 	}
 	/**
 	 * Executes the current job.  Returns the result of the execution.
-	 * 
+	 * <p>
 	 * The provided monitor can be used to report progress and respond to 
 	 * cancellation.  If the progress monitor has been cancelled, the job
 	 * should finish its execution at the earliest convenience. 
-	 * 
-	 * Once a job is stopped, it will not be asked to run again unless explicitly
-	 * rescheduled.
+	 * <p>
+	 * Jobs can optionally finish their execution asynchronously (in another thread) by 
+	 * returning a result status of <code>Job.ASYNC_FINISH</code>.  Jobs that finish
+	 * asynchronously <b>must</b> indicate when they are finished by calling
+	 * the method <code>Job.finished</code>.
 	 * 
 	 * @param monitor the monitor to be used for reporting progress, or null
 	 * if progress monitoring is not required.
 	 * @return the job result.
+	 * @see #ASYNC_FINISH
+	 * @see #finish
 	 */
 	public abstract IStatus run(IProgressMonitor monitor);
-	/**
-	 * Sets the priority of the job.  This will not affect the execution of
-	 * a running job, but it will affect how the job is scheduled while
-	 * it is waiting to be run.
-	 * 
-	 * @param priority the new job priority.  One of
-	 * INTERACTIVE, SHORT, LONG, BUILD, or DECORATE.
-	 */
-	public final void setPriority(int i) {
-		super.setPriority(i);
-	}
 	/**
 	 * Schedules this job to be run.  The job is added to a queue of waiting
 	 * jobs, and will be run when it arrives at the beginning of the queue.
@@ -257,6 +266,27 @@ public abstract class Job extends InternalJob {
 	 */
 	public final void schedule(long delay) {
 		super.schedule(delay);
+	}
+	/**
+	 * Sets the priority of the job.  This will not affect the execution of
+	 * a running job, but it will affect how the job is scheduled while
+	 * it is waiting to be run.
+	 * 
+	 * @param priority the new job priority.  One of
+	 * INTERACTIVE, SHORT, LONG, BUILD, or DECORATE.
+	 */
+	public final void setPriority(int i) {
+		super.setPriority(i);
+	}
+	/**
+	 * Sets the scheduling rule to be used when scheduling this job.  This method
+	 * must be called before the job is scheduled.
+	 * 
+	 * @param rule the new scheduling rule, or <code>null</code> if the job
+	 * should have no scheduling rule
+	 */
+	public final void setRule(ISchedulingRule rule) {
+		super.setRule(rule);
 	}
 
 	/**

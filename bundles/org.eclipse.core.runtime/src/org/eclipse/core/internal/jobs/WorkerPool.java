@@ -65,7 +65,7 @@ class WorkerPool {
 	 * creating a new worker if necessary
 	 */
 	protected synchronized void jobQueued(InternalJob job) {
-		//if there is a thread that's not busy, wake it up
+		//if there is a sleeping thread, wake it up
 		if (sleepingThreads > 0) {
 			if (JobManager.DEBUG)
 				debug("notifiying a worker"); //$NON-NLS-1$
@@ -81,6 +81,10 @@ class WorkerPool {
 			if (JobManager.DEBUG)
 				debug("worker added to pool: " + worker); //$NON-NLS-1$
 			worker.start();
+			//threads are considered busy until they start their first job, this ensures
+			//that if several jobs are queued at once, enough threads will be started
+			//to handle them all
+			busyThreads++;
 			return;
 		}
 	}
@@ -106,6 +110,17 @@ class WorkerPool {
 	}
 	/**
 	 * Returns a new job to run.  Returns null if the thread should die.
+	 * This method is only called when the very first job is being started by
+	 * a given worker.  This is so we can update the busyThread count
+	 * correctly since threads are considered "busy" in the period between 
+	 * constructor and commencement of their first job.
+	 */
+	protected synchronized Job startFirstJob() {
+		busyThreads--;
+		return startJob();
+	}
+	/**
+	 * Returns a new job to run.  Returns null if the thread should die.
 	 */
 	protected synchronized Job startJob() {
 		//if we're above capacity, kill the thread
@@ -113,17 +128,16 @@ class WorkerPool {
 			return null;
 		Job job = manager.startJob();
 		//spin until a job is found or until we have been idle for too long
-		boolean wasIdle = false;
+		long idleStart = System.currentTimeMillis();
 		while (running && job == null) {
 			long hint = manager.sleepHint();
 			boolean idle = hint == JobManager.NEVER;
-			//if we were already idle, and there are still no new jobs, then the thread can expire
-			if (wasIdle && idle)
-				break;
-			wasIdle = idle;
 			if (hint > 0)
 				sleep(Math.min(hint, BEST_BEFORE));
 			job = manager.startJob();
+			//if we were already idle, and there are still no new jobs, then the thread can expire
+			if (job == null && idle && (System.currentTimeMillis()-idleStart > BEST_BEFORE))
+				break;
 		}
 		if (job != null)
 			busyThreads++;

@@ -37,14 +37,14 @@ public interface IJobListener {
 	 */
 	public void awake(Job job);
 	/**
-	 * Notification that a job has stopped running, either due to cancelation, successful
+	 * Notification that a job has completed execution, either due to cancelation, successful
 	 * completion, or failure.  The supplied status object indicates the reason for failure.
 	 * 
 	 * @param job the job that has stopped.
 	 * @param result the result from the job's <code>run</code>
 	 * method.
 	 */
-	public void finished(Job job, IStatus result);
+	public void done(Job job, IStatus result);
 	/**
 	 * Notification that a job has started running.
 	 * 
