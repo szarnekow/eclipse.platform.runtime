@@ -109,9 +109,8 @@ class WorkerPool {
 	 */
 	protected synchronized Job startJob() {
 		//if we're above capacity, kill the thread
-		if (!running || threads.size() > MAX_THREADS) {
+		if (!running || threads.size() > MAX_THREADS)
 			return null;
-		}
 		Job job = manager.startJob();
 		//spin until a job is found or until we have been idle for too long
 		boolean wasIdle = false;
@@ -128,9 +127,6 @@ class WorkerPool {
 		}
 		if (job != null)
 			busyThreads++;
-		if (JobManager.DEBUG && job == null) {
-			debug("null job"); //$NON-NLS-1$
-		}
 		return job;
 	}
 }
