@@ -184,7 +184,7 @@ public final class InternalPlatform implements IPlatform {
 	 */
 	public URL asLocalURL(URL url) throws IOException {
 		//TODO: this is bogus - only to satisfy clients that want to resolve bundle2 URLs
-		if (url.getProtocol().equals("bundle2")) {
+		if (url.getProtocol().equals("bundle2")) { //$NON-NLS-1$
 			String bundleName = url.getHost();
 			Bundle bundle = this.context.getBundle(bundleName.substring(0, bundleName.indexOf('_')));
 
@@ -244,7 +244,7 @@ public final class InternalPlatform implements IPlatform {
 	 */
 	public void endSplash() {
 		if (DEBUG) {
-			String startString = System.getProperty("eclipse.debug.startupTime");
+			String startString = System.getProperty("eclipse.debug.startupTime"); //$NON-NLS-1$
 			if (startString != null)
 				try {
 					long start = Long.parseLong(startString);
@@ -361,27 +361,20 @@ public final class InternalPlatform implements IPlatform {
 	public String getProtectionSpace(URL resourceUrl) {
 		return keyring.getProtectionSpace(resourceUrl);
 	}
-	private void handleException(ISafeRunnable code, Throwable e) {
-		try {
-			if (!(e instanceof OperationCanceledException)) {
-				// try to figure out which plugin caused the problem.  Derive this from the class
-				// of the code arg.  Attribute to the Runtime plugin if we can't figure it out.
-				Bundle bundle = context.getBundleFor(code);
-				String pluginId = bundle.getGlobalName();
-				String message = Policy.bind("meta.pluginProblems", pluginId); //$NON-NLS-1$
-				IStatus status;
-				if (e instanceof CoreException) {
-					status = new MultiStatus(pluginId, PLUGIN_ERROR, message, e);
-					((MultiStatus) status).merge(((CoreException) e).getStatus());
-				} else {
-					status = new Status(Status.ERROR, pluginId, PLUGIN_ERROR, message, e);
-				}
-				getLog(bundle).log(status);
+	private  void handleException(ISafeRunnable code, Throwable e) {
+		if (!(e instanceof OperationCanceledException)) {
+			String pluginId = PI_RUNTIME;
+			String message = Policy.bind("meta.pluginProblems", pluginId); //$NON-NLS-1$
+			IStatus status;
+			if (e instanceof CoreException) {
+				status = new MultiStatus(pluginId, IPlatform.PLUGIN_ERROR, message, e);
+				((MultiStatus)status).merge(((CoreException)e).getStatus());
+			} else {
+				status = new Status(IStatus.ERROR, pluginId, IPlatform.PLUGIN_ERROR, message, e);
 			}
-			code.handleException(e);
-		} catch (Throwable th) {
-			th.printStackTrace();
+			log(status); //$NON-NLS-1$
 		}
+		code.handleException(e);
 	}
 
 	public IExtensionRegistry getRegistry() {
@@ -493,8 +486,8 @@ public final class InternalPlatform implements IPlatform {
 		// assumes the endInitializationHandler is available as a service
 		// see EclipseStarter.publishSplashScreen
 		for (int i = 0; i < ref.length; i++) {
-			String name = (String) ref[i].getProperty("name");
-			if (name != null && name.equals("splashscreen")) {
+			String name = (String) ref[i].getProperty("name"); //$NON-NLS-1$
+			if (name != null && name.equals("splashscreen")) { //$NON-NLS-1$
 				Runnable result = (Runnable) context.getService(ref[i]);
 				context.ungetService(ref[i]);
 				return result;
@@ -1093,7 +1086,7 @@ public final class InternalPlatform implements IPlatform {
 	public URL getInstallURL() {
 		if (installLocation == null)
 			try {
-				installLocation = new URL((String) System.getProperty("eclipse.installURL"));
+				installLocation = new URL((String) System.getProperty("eclipse.installURL")); //$NON-NLS-1$
 			} catch (MalformedURLException e) {
 				//This can't fail because eclipse.installURL has been set with a valid URL in BootLoader
 			}
@@ -1179,9 +1172,13 @@ public final class InternalPlatform implements IPlatform {
 		}
 		return (URL[]) result.toArray(new URL[result.size()]);
 	}
+
+	/* (non-Javadoc)
+	 * @see org.eclipse.core.runtime.IPlatform#getConfigurationMetadataLocation()
+	 */
 	public IPath getConfigurationMetadataLocation() {
 		if (configMetadataLocation == null)
-			configMetadataLocation = new Path(System.getProperty("osgi.configuration.area"));
+			configMetadataLocation = new Path(System.getProperty("osgi.configuration.area")); //$NON-NLS-1$
 		return configMetadataLocation;
 	}
 

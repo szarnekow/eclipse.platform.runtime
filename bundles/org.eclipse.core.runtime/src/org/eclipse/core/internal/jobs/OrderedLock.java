@@ -16,8 +16,9 @@ import org.eclipse.core.runtime.jobs.ISchedulingRule;
 /**
  * A lock used to control write access to an exclusive resource.
  * 
- * The lock avoids circular waiting deadlocks by ensuring that locks
- * are always acquired in a strict order.  This makes it impossible for n such 
+ * The lock avoids circular waiting deadlocks by detecting the deadlocks
+ * and resolving them through the suspension of all locks owned by one 
+ * of the threads involved in the deadlock. This makes it impossible for n such 
  * locks to deadlock while waiting for each other.  The downside is that this means
  * that during an interval when a process owns a lock, it can be forced
  * to give the lock up and wait until all locks it requires become
@@ -53,7 +54,7 @@ public class OrderedLock implements ILock, ISchedulingRule {
 	private final LockManager manager;
 	private final int number;
 	/**
-	 * Queue of semaphores for operations currently waiting
+	 * Queue of semaphores for threads currently waiting
 	 * on the lock.
 	 */
 	private final Queue operations = new Queue();
@@ -237,10 +238,13 @@ public class OrderedLock implements ILock, ISchedulingRule {
 			manager.addLockThread(currentOperationThread, this);
 	}
 	/**
-	 * Forces the lock to be at the given depth.  Used when re-acquiring a suspended
-	 * lock.
+	 * Forces the lock to be at the given depth.
+	 * Used when re-acquiring a suspended lock.
 	 */
 	protected void setDepth(int newDepth) {
+		for (int i = depth; i < newDepth; i++) {
+			manager.addLockThread(currentOperationThread, this);
+		}
 		this.depth = newDepth;
 	}
 	/**

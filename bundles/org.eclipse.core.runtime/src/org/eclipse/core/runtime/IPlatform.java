@@ -37,7 +37,6 @@ import org.osgi.framework.Bundle;
  * be shutdown from inside (code in plug-ins have no access to
  * <code>BootLoader</code>).
  * </p>
- * @deprecated Use Platform instead.
  */
 public interface IPlatform {
 	/**
