@@ -214,7 +214,8 @@ public class JobManager implements IJobManager {
 	}
 	/**
 	 * Removes and returns the first waiting job in the queue. Returns null if there
-	 * are no items waiting in the queue
+	 * are no items waiting in the queue.  If an item is removed from the queue,
+	 * it is moved to the running jobs list.
 	 */
 	private Job nextJob() {
 		synchronized (lock) {
@@ -233,11 +234,15 @@ public class JobManager implements IJobManager {
 			while (next != null) {
 				Job blocker = findBlockingJob(next);
 				if (blocker == null)
-					return next;
+					break;
 				//queue this job after the job that's blocking it
 				blocker.addLast(next);
 				next = (Job)waiting.dequeue();
 			}
+			//the job to run must be in the running list before we exit
+			//the sync block, otherwise two jobs with conflicting rules could start at once
+			if (next != null)
+				running.add(next);
 			return next;
 		}
 	}
@@ -369,21 +374,15 @@ public class JobManager implements IJobManager {
 				jobListeners.aboutToRun(job);
 				//listeners may have canceled or put the job to sleep
 				if (job.getState() == Job.WAITING) {
-					synchronized (lock) {
-						((InternalJob) job).setState(Job.RUNNING);
-						running.add(job);
-					}
+					((InternalJob)job).setState(Job.RUNNING);
 					jobListeners.running(job);
 					return job;
 				}
 			}
 			if (job.getState() != Job.SLEEPING) {
 				//job has been vetoed or canceled, so mark it as done
-				synchronized (lock) {
-					((InternalJob)job).setState(Job.NONE);
-				}
-				//notify listeners that job has been canceled
-				jobListeners.done(job, Status.CANCEL_STATUS);
+				endJob(job, Status.CANCEL_STATUS);
+				continue;
 			}
 		}
 	}
