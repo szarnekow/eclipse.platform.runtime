@@ -284,6 +284,30 @@ private String collapseSlashes(String path) {
 	return new String(result, 0, count);
 }
 /* (Intentionally not included in javadoc)
+ * Returns the size of the string that will be created by toString or toOSString.
+ */
+private int computeLength() {
+	int length = 0;
+	if (device != null)
+		length += device.length();
+	if ((separators & HAS_LEADING) != 0) 
+		length ++;
+	if ((separators & IS_UNC) != 0)
+		length++;
+	//add the segment lengths
+	int max = segments.length;
+	if (max > 0) {
+		for (int i = 0; i < max; i++) {
+			length += segments[i].length();
+		}
+		//add the separator lengths
+		length += max-1;
+	}
+	if ((separators & HAS_TRAILING) != 0) 
+		length++;
+	return length;
+}
+/* (Intentionally not included in javadoc)
  * Returns the number of segments in the given path
  */
 private int computeSegmentCount(String path) {
@@ -701,42 +725,76 @@ public File toFile() {
  * @see IPath#toOSString
  */
 public String toOSString() {
+	//Note that this method is identical to toString except
+	//it uses the OS file separator instead of the path separator
+	int resultSize = computeLength();
+	if (resultSize <= 0)
+		return EMPTY_STRING;
 	char FILE_SEPARATOR = File.separatorChar;
-	StringBuffer result = new StringBuffer(30);
-	if (device != null)
-		result.append(device);
+	char[] result = new char[resultSize];
+	int offset = 0;
+	if (device != null) {
+		int size = device.length();
+		device.getChars(0, size, result, offset);
+		offset += size;
+	}
 	if ((separators & HAS_LEADING) != 0) 
-		result.append(FILE_SEPARATOR);
+		result[offset++] = SEPARATOR;
 	if ((separators & IS_UNC) != 0)
-		result.append(FILE_SEPARATOR);
-	for (int i = 0; i < segments.length; i++) {
-		result.append(segments[i]);
-		if (i < segments.length-1)
-			result.append(FILE_SEPARATOR);
+		result[offset++] = SEPARATOR;
+	int len = segments.length-1;
+	if (len>=0) {
+		//append all but the last segment, with separators
+		for (int i = 0; i < len; i++) {
+			int size = segments[i].length();
+			segments[i].getChars(0, size, result, offset);
+			offset += size;
+			result[offset++] = SEPARATOR;
+		}
+		//append the last segment
+		int size = segments[len].length();
+		segments[len].getChars(0, size, result, offset);
+		offset += size;
 	}
 	if ((separators & HAS_TRAILING) != 0) 
-		result.append(FILE_SEPARATOR);
-	return result.toString();
+		result[offset++] = SEPARATOR;
+	return new String(result);
 }
 /* (Intentionally not included in javadoc)
  * @see IPath#toString
  */
 public String toString() {
-	StringBuffer result = new StringBuffer(30);
-	if (device != null)
-		result.append(device);
+	int resultSize = computeLength();
+	if (resultSize <= 0)
+		return EMPTY_STRING;
+	char[] result = new char[resultSize];
+	int offset = 0;
+	if (device != null) {
+		int size = device.length();
+		device.getChars(0, size, result, offset);
+		offset += size;
+	}
 	if ((separators & HAS_LEADING) != 0) 
-		result.append(SEPARATOR);
+		result[offset++] = SEPARATOR;
 	if ((separators & IS_UNC) != 0)
-		result.append(SEPARATOR);
-	for (int i = 0; i < segments.length; i++) {
-		result.append(segments[i]);
-		if (i < segments.length-1)
-			result.append(SEPARATOR);
+		result[offset++] = SEPARATOR;
+	int len = segments.length-1;
+	if (len>=0) {
+		//append all but the last segment, with separators
+		for (int i = 0; i < len; i++) {
+			int size = segments[i].length();
+			segments[i].getChars(0, size, result, offset);
+			offset += size;
+			result[offset++] = SEPARATOR;
+		}
+		//append the last segment
+		int size = segments[len].length();
+		segments[len].getChars(0, size, result, offset);
+		offset += size;
 	}
 	if ((separators & HAS_TRAILING) != 0) 
-		result.append(SEPARATOR);
-	return result.toString();
+		result[offset++] = SEPARATOR;
+	return new String(result);
 }
 /* (Intentionally not included in javadoc)
  * @see IPath#uptoSegment
