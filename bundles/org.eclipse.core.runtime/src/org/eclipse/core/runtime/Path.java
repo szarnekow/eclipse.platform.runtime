@@ -156,9 +156,15 @@ public IPath append(String tail) {
  * @see IPath#append(IPath)
  */
 public IPath append(IPath tail) {
-	if (tail == null || tail.isEmpty() || tail.isRoot()) {
+	//optimize some easy cases
+	if (tail == null || tail.isEmpty() || tail.isRoot())
 		return this;
-	}
+	if (this.isEmpty())
+		return tail.makeRelative();
+	if (this.isRoot())
+		return tail.makeAbsolute();
+	
+	//concatenate the two segment arrays
 	int myLen = segments.length;
 	int tailLen = tail.segmentCount();
 	String[] newSegments = new String[myLen+tailLen];
@@ -589,7 +595,15 @@ public IPath makeAbsolute() {
 	if (isAbsolute()) {
 		return this;
 	}
-	return new Path(device, segments, separators | HAS_LEADING);
+	Path result = new Path(device, segments, separators | HAS_LEADING);
+	//may need canonicalizing if it has leading ".." or "." segments
+	if (result.segmentCount() > 0) {
+		String first = result.segment(0);
+		if (first.equals("..") || first.equals(".")) {
+			result.canonicalize();
+		}
+	}
+	return result;
 }
 /* (Intentionally not included in javadoc)
  * @see IPath#makeRelative
@@ -739,9 +753,9 @@ public String toOSString() {
 		offset += size;
 	}
 	if ((separators & HAS_LEADING) != 0) 
-		result[offset++] = SEPARATOR;
+		result[offset++] = FILE_SEPARATOR;
 	if ((separators & IS_UNC) != 0)
-		result[offset++] = SEPARATOR;
+		result[offset++] = FILE_SEPARATOR;
 	int len = segments.length-1;
 	if (len>=0) {
 		//append all but the last segment, with separators
@@ -749,7 +763,7 @@ public String toOSString() {
 			int size = segments[i].length();
 			segments[i].getChars(0, size, result, offset);
 			offset += size;
-			result[offset++] = SEPARATOR;
+			result[offset++] = FILE_SEPARATOR;
 		}
 		//append the last segment
 		int size = segments[len].length();
@@ -757,7 +771,7 @@ public String toOSString() {
 		offset += size;
 	}
 	if ((separators & HAS_TRAILING) != 0) 
-		result[offset++] = SEPARATOR;
+		result[offset++] = FILE_SEPARATOR;
 	return new String(result);
 }
 /* (Intentionally not included in javadoc)
