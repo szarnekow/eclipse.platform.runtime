@@ -103,7 +103,7 @@ public class Lock {
 			updateCurrentOperation();
 			if (DEBUG)
 				System.out.println("[" + Thread.currentThread() + "] Operation started... :-)"); //$NON-NLS-1$ //$NON-NLS-2$
-			Assert.isTrue(depth == 0, "Lock depth is invalid");
+			Assert.isTrue(depth == 0, "Lock depth is invalid"); //$NON-NLS-1$
 		}
 		depth++;
 	}
@@ -134,7 +134,7 @@ public class Lock {
 	 * @see #acquire
 	 */
 	public synchronized void release() {
-		Assert.isTrue(currentOperationThread == Thread.currentThread(), "Lock released by wrong thread");
+		Assert.isTrue(currentOperationThread == Thread.currentThread(), "Lock released by wrong thread"); //$NON-NLS-1$
 		//only release the lock when the depth reaches zero
 		if (--depth == 0) {
 			Semaphore next = (Semaphore) operations.peek();
@@ -147,7 +147,7 @@ public class Lock {
 	 * For debugging purposes only.
 	 */
 	public String toString() {
-		return "Lock(" + number + ")";
+		return "Lock(" + number + ")"; //$NON-NLS-1$ //$NON-NLS-2$
 	}
 	/**
 	 * Removes the waiting operation from the queue

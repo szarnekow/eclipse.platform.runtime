@@ -12,6 +12,7 @@ package org.eclipse.core.runtime.jobs;
 
 import org.eclipse.core.internal.jobs.InternalJob;
 import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.IStatus;
 
 /**
  * Jobs are units of runnable work that can be scheduled to be run with the job
@@ -29,22 +30,28 @@ import org.eclipse.core.runtime.IProgressMonitor;
  * <code>PAUSED</code> state.  The job will remain in the paused state until it is 
  * either resumed or canceled.  A running job cannot be paused.
  * 
+ * Jobs can be assigned a priority that is used as a hint about how the job should
+ * be scheduled.  There is no guarantee that jobs of one priority will be run before
+ * all jobs of lower priority.  The javadoc for the various priority constants provide
+ * more detail about what each priority means.  By default, jobs start in the 
+ * <code>LONG</code> priority class.
+ * 
  */
 public abstract class Job extends InternalJob {
 	/* Job priorities */
 	/** 
-	 * Job priority constant (value 1) for interactive jobs.
+	 * Job priority constant (value 10) for interactive jobs.
 	 * Interactive jobs generally have priority over all other jobs.
-	 * Interactive jobs should be relatively fast running in order to avoid
+	 * Interactive jobs must be relatively fast running in order to avoid
 	 * blocking other interactive jobs from running.
 	 * 
 	 * @see IJobManager#getPriority
 	 * @see IJobManager#setPriority
 	 * @see Job#run
 	 */
-	public static final int INTERACTIVE = 1;
+	public static final int INTERACTIVE = 10;
 	/** 
-	 * Job priority constant (value 2) for short background jobs.
+	 * Job priority constant (value 20) for short background jobs.
 	 * Short background jobs are jobs that typically complete within a second,
 	 * but may take longer in some cases.  Short jobs are given priority
 	 * over all other jobs except interactive jobs.
@@ -53,28 +60,28 @@ public abstract class Job extends InternalJob {
 	 * @see IJobManager#setPriority
 	 * @see Job#run
 	 */
-	public static final int SHORT = 2;
+	public static final int SHORT = 20;
 	/** 
-	 * Job priority constant (value 3) for long-running background jobs.
+	 * Job priority constant (value 30) for long-running background jobs.
 	 * 
 	 * see IJobManager#getPriority
 	 * @see IJobManager#setPriority
 	 * @see Job#run
 	 */
-	public static final int LONG = 3;
+	public static final int LONG = 30;
 
 	/** 
-	 * Job priority constant (value 4) for build jobs.  Build jobs are
+	 * Job priority constant (value 40) for build jobs.  Build jobs are
 	 * generally run after all other background jobs complete.
 	 * 
 	 * @see IJobManager#getPriority
 	 * @see IJobManager#setPriority
 	 * @see Job#run
 	 */
-	public static final int BUILD = 4;
+	public static final int BUILD = 40;
 
 	/** 
-	 * Job priority constant (value 5) for decoration jobs.
+	 * Job priority constant (value 50) for decoration jobs.
 	 * Decoration jobs have lowest priority.  Decoration jobs generally
 	 * compute extra information that the user may be interested in seeing
 	 * but is generally not waiting for.
@@ -83,7 +90,7 @@ public abstract class Job extends InternalJob {
 	 * @see IJobManager#setPriority
 	 * @see Job#run
 	 */
-	public static final int DECORATE = 5;
+	public static final int DECORATE = 50;
 	/** 
 	 * Job return code (value 0) indicating successful completion.
 	 * 
@@ -205,9 +212,9 @@ public abstract class Job extends InternalJob {
 	 * 
 	 * Once a job is stopped, it will not be asked to run again unless explicitly
 	 * rescheduled.
-	 * @return the job result.  One of SUCCESS, FAILURE, CANCELED.
+	 * @return the job result.
 	 */
-	public abstract int run(IProgressMonitor monitor);
+	public abstract IStatus run(IProgressMonitor monitor);
 	/**
 	 * Sets the priority of the job.  This will not affect the execution of
 	 * a running job, but it will affect how the job is scheduled while

@@ -26,7 +26,7 @@ public class LockManager {
 		int i = locks.indexOf(toLock);
 		if (i == -1) {
 			//we didn't find the given lock
-			Assert.isTrue(false, "Lock not found: " + toLock);
+			Assert.isTrue(false, "Lock not found: " + toLock); //$NON-NLS-1$
 			return null;
 		}
 		ArrayList toAcquire = new ArrayList();

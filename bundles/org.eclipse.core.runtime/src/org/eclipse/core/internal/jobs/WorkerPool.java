@@ -12,6 +12,7 @@ package org.eclipse.core.internal.jobs;
 import java.util.ArrayList;
 
 import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.jobs.Job;
 
 /**
@@ -22,7 +23,7 @@ import org.eclipse.core.runtime.jobs.Job;
  * 
  */
 class WorkerPool {
-	private static final int MIN_THREADS = 1;
+//	private static final int MIN_THREADS = 1;
 	private static final int MAX_THREADS = 4;
 	private boolean running = false;
 	private ArrayList threads = new ArrayList();
@@ -30,7 +31,7 @@ class WorkerPool {
 	/**
 	 * Threads not used by their best before timestamp are destroyed.
 	 */
-	private static final int BEST_BEFORE = 1;
+	private static final int BEST_BEFORE = 60000;
 
 	private JobManager manager;
 
@@ -38,8 +39,11 @@ class WorkerPool {
 		this.manager = manager;
 		running = true;
 	}
-	protected void endJob(Job job, int result) {
+	protected void endJob(Job job, IStatus result) {
 		manager.endJob(job, result);
+	}
+	protected synchronized void endWorker(Worker worker) {
+		threads.remove(worker);
 	}
 	protected IProgressMonitor getProgressHandler() {
 		return manager.getProgressHandler();
@@ -83,8 +87,9 @@ class WorkerPool {
 	protected Job startJob() {
 		//if we're above capacity, kill the thread
 		synchronized (this) {
-			if (!running || threads.size() > MAX_THREADS)
+			if (!running || threads.size() > MAX_THREADS) {
 				return null;
+			}
 		}
 		Job job = manager.startJob();
 		if (job == null) {

@@ -10,6 +10,8 @@
  *******************************************************************************/
 package org.eclipse.core.runtime.jobs;
 
+import org.eclipse.core.runtime.IStatus;
+
 /**
  * Callback interface for clients interested in being notified of
  * the progress of jobs being managed by the job manager.
@@ -37,9 +39,9 @@ public interface IJobListener {
 	 * Notification that a job has stopped running.
 	 * @param job the job that has stopped.
 	 * @param result the result from the job's <code>run</code>
-	 * method.  One of SUCCESS, FAILURE, CANCELED
+	 * method.
 	 */
-	public void finished(Job job, int result);
+	public void finished(Job job, IStatus result);
 	/**
 	 * Notification that a job has started running.
 	 * @param job the job that has started.
@@ -50,4 +52,10 @@ public interface IJobListener {
 	 * @param job the job that has been paused
 	 */
 	public void paused(Job job);
+	/**
+	 * Notification that a job was previously paused and has now been rescheduled
+	 * to run.
+	 * @param job the job that has been resumed
+	 */
+	public void resumed(Job job);
 }

@@ -10,6 +10,7 @@
  *******************************************************************************/
 package org.eclipse.core.internal.jobs;
 
+import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.jobs.Job;
 
 public class Worker extends Thread {
@@ -33,9 +34,10 @@ public class Worker extends Thread {
 			//if job is null we've been shutdown
 			if (currentJob == null)
 				return;
-			int result = currentJob.run(pool.getProgressHandler());
+			IStatus result = currentJob.run(pool.getProgressHandler());
 			pool.endJob(currentJob, result);
 			currentJob = null;
 		}
+		pool.endWorker(this);
 	}
 }

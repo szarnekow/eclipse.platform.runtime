@@ -14,7 +14,7 @@ import java.util.*;
 
 import org.eclipse.core.internal.locks.Queue;
 import org.eclipse.core.internal.runtime.Assert;
-import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.*;
 import org.eclipse.core.runtime.jobs.*;
 
 public class JobManager implements IJobManager {
@@ -98,7 +98,7 @@ public class JobManager implements IJobManager {
 		if (wasWaiting) {
 			IJobListener[] listeners = getJobListeners();
 			for (int i = 0; i < listeners.length; i++) {
-				listeners[i].finished(job, Job.CANCELED);
+				listeners[i].finished(job, Status.CANCEL_STATUS);
 			}
 		}
 		//cancelation may only fail if the job is currently running
@@ -115,13 +115,8 @@ public class JobManager implements IJobManager {
 	 * call endJob when the job is finished running.
 	 * @return
 	 */
-	void endJob(Job job, int result) {
+	void endJob(Job job, IStatus result) {
 		synchronized (lock) {
-			//if the job was not running then it is a worker programming error
-			if (!allJobs.remove(job) || job.getState() != Job.RUNNING) {
-				Assert.isLegal(false, "Worker ended a job it didn't start");
-				return;
-			}	
 			((InternalJob)job).setState(Job.NONE);
 		}
 		//notify listeners outside sync block
@@ -197,7 +192,7 @@ public class JobManager implements IJobManager {
 	 * @see org.eclipse.core.runtime.jobs.IJobManager#schedule(Job, long)
 	 */
 	public void schedule(Job job, long delay) {
-		Assert.isNotNull(job, "Job is null");
+		Assert.isNotNull(job, "Job is null"); //$NON-NLS-1$
 		//notify listeners outside sync block
 		IJobListener[] listeners = getJobListeners();
 		for (int i = 0; i < listeners.length; i++) {
@@ -251,10 +246,8 @@ public class JobManager implements IJobManager {
 			if (job == null)
 				return null;
 			//must perform this outside sync block because it is third party code
-			if (job.shouldRun()) {
-				((InternalJob)job).setState(Job.RUNNING);
-			} else {
-				((InternalJob)job).setState(Job.NONE);
+			if (!job.shouldRun()) {
+				job.cancel();
 				continue;
 			}
 			//todo check listeners for veto
@@ -276,6 +269,7 @@ public class JobManager implements IJobManager {
 				if (job == null)
 					return null;
 				if (job.getState() == Job.WAITING) {
+					((InternalJob)job).setState(Job.RUNNING);
 					return job;
 				}
 				if (job.getState() == Job.PAUSED) {

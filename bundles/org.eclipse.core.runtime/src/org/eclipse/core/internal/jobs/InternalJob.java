@@ -21,7 +21,7 @@ public abstract class InternalJob {
 	private static int nextJobNumber = 0;
 	
 	private boolean paused = false;
-	private int priority = Job.NONE;
+	private int priority = Job.LONG;
 	private int status = Job.NONE;
 	private final int jobNumber = nextJobNumber++;
 
@@ -53,6 +53,6 @@ public abstract class InternalJob {
 		status = i;
 	}
 	public String toString() {
-		return "Job(" + jobNumber + ")";
+		return "Job(" + jobNumber + ")";  //$NON-NLS-1$//$NON-NLS-2$
 	}
 }
