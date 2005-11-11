@@ -13,5 +13,5 @@ Export-Package: org.eclipse.core.tests.harness,
 Require-Bundle: org.eclipse.core.runtime.compatibility,
  org.junit,
  org.eclipse.pde.junit.runtime,
- org.eclipse.test.performance;resolution:=optional
+ org.eclipse.test.performance
 Eclipse-AutoStart: true
