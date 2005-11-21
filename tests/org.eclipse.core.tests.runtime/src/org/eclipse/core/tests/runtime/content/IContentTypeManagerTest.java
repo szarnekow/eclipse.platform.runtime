@@ -696,7 +696,6 @@ public class IContentTypeManagerTest extends RuntimeTest {
 		}
 		assertTrue("6.1", !tracer.isOnlyChange(myType));
 		
-		// XXX Oleg: reset type for the next text run (if type to set == current type, no event will be generated)
 		try {
 			myType.setDefaultCharset("ABC");
 		} catch (CoreException e1) {

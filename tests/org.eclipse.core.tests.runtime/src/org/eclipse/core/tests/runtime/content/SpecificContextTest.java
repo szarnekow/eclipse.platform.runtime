@@ -80,7 +80,6 @@ public class SpecificContextTest extends RuntimeTest {
 		assertEquals("2.0", textContentType, local.findContentTypeFor(getName() + ".local"));
 		assertEquals("2.1", null, global.findContentTypeFor(getName() + ".local"));
 		
-		// XXX Oleg: clean-up for the follow-up tests
 		try {
 			textContentType.removeFileSpec(getName() + ".global", IContentType.FILE_NAME_SPEC);
 		} catch (CoreException e) {
