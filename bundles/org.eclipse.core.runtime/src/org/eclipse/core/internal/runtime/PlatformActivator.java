@@ -12,15 +12,13 @@
 package org.eclipse.core.internal.runtime;
 
 import org.eclipse.core.runtime.*;
-import org.eclipse.equinox.app.ApplicationInfo;
+import org.eclipse.equinox.internal.app.CommandLineArgs;
 import org.osgi.framework.*;
 
 /**
  * Activator for the Eclipse runtime.
  */
 public class PlatformActivator extends Plugin implements BundleActivator {
-	private static final String PI_APP = "org.eclipse.equinox.app"; //$NON-NLS-1$
-
 	private static BundleContext context;
 	private ServiceRegistration entryLocatorRegistration;
 
@@ -45,7 +43,7 @@ public class PlatformActivator extends Plugin implements BundleActivator {
 	}
 
 	private void startAppContainer() {
-		ApplicationInfo.getApplicationArgs();
+		CommandLineArgs.getApplicationArgs();
 	}
 
 	private void unregisterEntryLocator() {

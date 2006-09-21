@@ -23,7 +23,8 @@ import org.eclipse.core.internal.runtime.auth.AuthorizationHandler;
 import org.eclipse.core.runtime.*;
 import org.eclipse.core.runtime.content.IContentTypeManager;
 import org.eclipse.core.runtime.preferences.IPreferencesService;
-import org.eclipse.equinox.app.ApplicationInfo;
+import org.eclipse.equinox.internal.app.*;
+import org.eclipse.equinox.internal.app.Activator;
 import org.eclipse.osgi.framework.log.FrameworkLog;
 import org.eclipse.osgi.service.datalocation.Location;
 import org.eclipse.osgi.service.debug.DebugOptions;
@@ -169,7 +170,7 @@ public final class InternalPlatform {
 	}
 
 	public String[] getApplicationArgs() {
-		return ApplicationInfo.getApplicationArgs();
+		return CommandLineArgs.getApplicationArgs();
 	}
 
 	public boolean getBooleanOption(String option, boolean defaultValue) {
@@ -284,7 +285,7 @@ public final class InternalPlatform {
 	}
 
 	public String[] getCommandLineArgs() {
-		return ApplicationInfo.getCommandLineArgs();
+		return CommandLineArgs.getAllArgs();
 	}
 
 	public Location getConfigurationLocation() {
@@ -516,7 +517,8 @@ public final class InternalPlatform {
 	}
 
 	public IProduct getProduct() {
-		return ApplicationInfo.getProduct();
+		EclipseAppContainer container = Activator.getContainer();
+		return container == null ? null : container.getProduct();
 	}
 
 	public IExtensionRegistry getRegistry() {
