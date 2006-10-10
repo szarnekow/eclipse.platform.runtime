@@ -23,6 +23,7 @@ import org.eclipse.core.internal.runtime.auth.AuthorizationHandler;
 import org.eclipse.core.runtime.*;
 import org.eclipse.core.runtime.content.IContentTypeManager;
 import org.eclipse.core.runtime.preferences.IPreferencesService;
+import org.eclipse.equinox.app.IApplicationContext;
 import org.eclipse.equinox.internal.app.*;
 import org.eclipse.equinox.internal.app.Activator;
 import org.eclipse.osgi.framework.log.FrameworkLog;
@@ -143,10 +144,13 @@ public final class InternalPlatform {
 	 * @see Platform#endSplash()
 	 */
 	public void endSplash() {
-		if (splashEnded)
-			return; // do not do this more than once
-		final Runnable handler = getSplashHandler();
-		if (handler == null)
+		synchronized (this) {
+			if (splashEnded)
+				return; // do not do this more than once
+			splashEnded = true;
+		}
+		final IApplicationContext applicationContext = getApplicationContext();
+		if (applicationContext == null)
 			return;
 		SafeRunner.run(new ISafeRunnable() {
 			public void handleException(Throwable e) {
@@ -155,8 +159,7 @@ public final class InternalPlatform {
 			}
 
 			public void run() throws Exception {
-				handler.run();
-				splashEnded = true;
+				applicationContext.applicationRunning();
 			}
 		});
 	}
@@ -544,21 +547,22 @@ public final class InternalPlatform {
 		return runtimeInstance;
 	}
 
-	private Runnable getSplashHandler() {
+	private IApplicationContext getApplicationContext() {
 		ServiceReference[] ref;
 		try {
-			ref = context.getServiceReferences(Runnable.class.getName(), "(name=splashscreen)"); //$NON-NLS-1$
+			ref = context.getServiceReferences(IApplicationContext.class.getName(), "(eclipse.application.type=main.thread)"); //$NON-NLS-1$
 		} catch (InvalidSyntaxException e) {
 			return null;
 		}
 		if (ref == null)
 			return null;
-		// assumes the endInitializationHandler is available as a service
-		// see EclipseStarter.publishSplashScreen
+		// assumes the application context is available as a service
 		for (int i = 0; i < ref.length; i++) {
-			Runnable result = (Runnable) context.getService(ref[i]);
-			context.ungetService(ref[i]);
-			return result;
+			IApplicationContext result = (IApplicationContext) context.getService(ref[i]);
+			if (result != null) {
+				context.ungetService(ref[i]);
+				return result;
+			}
 		}
 		return null;
 	}

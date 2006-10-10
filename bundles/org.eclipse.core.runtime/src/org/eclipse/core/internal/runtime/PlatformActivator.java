@@ -43,6 +43,7 @@ public class PlatformActivator extends Plugin implements BundleActivator {
 	}
 
 	private void startAppContainer() {
+		// just using a class out of app admin to force it to lazy-start
 		CommandLineArgs.getApplicationArgs();
 	}
 
