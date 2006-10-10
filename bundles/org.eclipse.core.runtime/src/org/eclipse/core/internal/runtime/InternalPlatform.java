@@ -149,19 +149,9 @@ public final class InternalPlatform {
 				return; // do not do this more than once
 			splashEnded = true;
 		}
-		final IApplicationContext applicationContext = getApplicationContext();
-		if (applicationContext == null)
-			return;
-		SafeRunner.run(new ISafeRunnable() {
-			public void handleException(Throwable e) {
-				// just continue ... the exception has already been logged by
-				// handleException(ISafeRunnable)
-			}
-
-			public void run() throws Exception {
-				applicationContext.applicationRunning();
-			}
-		});
+		IApplicationContext applicationContext = getApplicationContext();
+		if (applicationContext != null)
+			applicationContext.applicationRunning();
 	}
 
 	/**
@@ -554,15 +544,13 @@ public final class InternalPlatform {
 		} catch (InvalidSyntaxException e) {
 			return null;
 		}
-		if (ref == null)
+		if (ref == null || ref.length == 0)
 			return null;
 		// assumes the application context is available as a service
-		for (int i = 0; i < ref.length; i++) {
-			IApplicationContext result = (IApplicationContext) context.getService(ref[i]);
-			if (result != null) {
-				context.ungetService(ref[i]);
-				return result;
-			}
+		IApplicationContext result = (IApplicationContext) context.getService(ref[0]);
+		if (result != null) {
+			context.ungetService(ref[0]);
+			return result;
 		}
 		return null;
 	}
