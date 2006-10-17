@@ -111,9 +111,10 @@ public final class InternalPlatform {
 	private ServiceTracker debugTracker = null;
 	private ServiceTracker contentTracker = null;
 	private ServiceTracker preferencesTracker = null;
-	private ServiceTracker productTracker = null;
 	private ServiceTracker userLocation = null;
 	private ServiceTracker groupProviderTracker = null;
+
+	private IProduct product;
 
 	public static InternalPlatform getDefault() {
 		return singleton;
@@ -510,8 +511,17 @@ public final class InternalPlatform {
 	}
 
 	public IProduct getProduct() {
+		if (product != null)
+			return product;
 		EclipseAppContainer container = Activator.getContainer();
-		return container == null ? null : container.getProduct();
+		IBranding branding = container == null ? null : container.getBranding();
+		if (branding == null)
+			return null;
+		Object brandingProduct = branding.getProduct();
+		if (!(brandingProduct instanceof IProduct))
+			brandingProduct = new Product(branding);
+		product = (IProduct) brandingProduct;
+		return product;
 	}
 
 	public IExtensionRegistry getRegistry() {
@@ -817,10 +827,6 @@ public final class InternalPlatform {
 	}
 
 	private void closeOSGITrackers() {
-		if (productTracker != null) {
-			productTracker.close();
-			productTracker = null;
-		}
 		if (preferencesTracker != null) {
 			preferencesTracker.close();
 			preferencesTracker = null;
