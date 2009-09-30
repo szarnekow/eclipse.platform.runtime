@@ -264,7 +264,7 @@ public class SessionTestRunner {
 		Assert.isTrue(setup.getEclipseArgument("classname") != null ^ setup.getEclipseArgument("test") != null, "either a test suite or a test case must be provided");
 		// to prevent changes in the protocol from breaking us, 
 		// force the version we know we can work with 
-		setup.setEclipseArgument("version", "3");
+		setup.setEclipseArgument("version", "4");
 		IStatus outcome = Status.OK_STATUS;
 		try {
 			int returnCode = setup.run();
