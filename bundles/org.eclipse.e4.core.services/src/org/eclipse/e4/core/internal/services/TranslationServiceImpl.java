@@ -44,7 +44,7 @@ public class TranslationServiceImpl implements ITranslationService {
 				final Bundle bundle = b;
 				return new ITranslationProvider() {
 
-					public String translate(String locale, String category, String key) {
+					public String translate(String locale, String key) {
 						ResourceBundle resBundle = ServicesActivator.getDefault()
 								.getBundleLocalization().getLocalization(bundle, locale);
 						if (resBundle != null) {
@@ -68,7 +68,7 @@ public class TranslationServiceImpl implements ITranslationService {
 		ITranslationProvider pv = getProvider(providerId);
 
 		if (pv != null) {
-			return pv.translate(locale, providerId, key);
+			return pv.translate(locale, key);
 		}
 
 		return key;
@@ -79,7 +79,7 @@ public class TranslationServiceImpl implements ITranslationService {
 		if (pv != null) {
 			String[] rv = new String[keys.length];
 			for (int i = 0; i < keys.length; i++) {
-				rv[i] = pv.translate(locale, providerId, keys[i]);
+				rv[i] = pv.translate(locale, keys[i]);
 			}
 			return rv;
 		}
@@ -103,7 +103,7 @@ public class TranslationServiceImpl implements ITranslationService {
 		try {
 			registerTranslationProvider(data.get("PROVIDER_ID"), provider);
 		} catch (IllegalArgumentException e) {
-			// TODO: handle exception
+			e.printStackTrace();
 		}
 	}
 

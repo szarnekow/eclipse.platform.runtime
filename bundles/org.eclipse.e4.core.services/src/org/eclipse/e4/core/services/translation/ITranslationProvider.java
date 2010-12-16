@@ -43,5 +43,5 @@ public interface ITranslationProvider {
 	 *            the key
 	 * @return the translated value must not be <code>null</code>
 	 */
-	public String translate(String locale, String category, String key);
+	public String translate(String locale, String key);
 }

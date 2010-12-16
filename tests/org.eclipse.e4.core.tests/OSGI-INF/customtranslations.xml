@@ -4,5 +4,5 @@
    <service>
       <provide interface="org.eclipse.e4.core.services.translation.ITranslationProvider"/>
    </service>
-   <property name="CATEGORIES" type="String" value="org.eclipse.e4.core.tests.customcat"/>
+   <property name="PROVIDER_ID" type="String" value="org.eclipse.e4.core.tests.customcat"/>
 </scr:component>

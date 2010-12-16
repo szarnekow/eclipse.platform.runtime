@@ -75,7 +75,7 @@ public class PropertiesBundleTranslationProvider implements ITranslationProvider
 		return root;
 	}
 
-	public String translate(String locale, String category, String key) {
+	public String translate(String locale, String key) {
 		String defaultLocale = Locale.getDefault().toString();
 		String localeString = locale;
 		ResourceBundle bundle = getResourceBundle(locale.toString(),

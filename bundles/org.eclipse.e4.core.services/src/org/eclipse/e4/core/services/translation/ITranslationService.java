@@ -31,6 +31,15 @@ import org.eclipse.osgi.service.localization.BundleLocalization;
  * </ul>
  * Where Ls, Cs and Vs are the specified locale (language, country, variant) and Ld, Cd and Vd are
  * the default locale (language, country, variant).
+ * <p>
+ * <b>PoviderId:</b>
+ * <ul>
+ * <li>All bundle symbolic names</li>
+ * <li>Providers registered through DI</li>
+ * <li>Providers registered through
+ * {@link ITranslationService#registerTranslationProvider(String, ITranslationProvider)}</li>
+ * </ul>
+ * </p>
  */
 public interface ITranslationService {
 	/**

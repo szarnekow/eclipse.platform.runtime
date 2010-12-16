@@ -32,80 +32,74 @@ public class TestTranslationService extends TestCase {
 	}
 
 	public void testBundleTranslations() {
-		String category = "org.eclipse.e4.core.tests";
+		String providerId = "org.eclipse.e4.core.tests";
 		ITranslationService s = getService();
 
 		assertEquals("Value En",
-				s.translate(Locale.ENGLISH.toString(), category, "key1"));
+				s.translate(Locale.ENGLISH.toString(), providerId, "key1"));
 
 		Locale.setDefault(Locale.GERMAN);
 
 		assertEquals("Wert De",
-				s.translate(Locale.GERMAN.toString(), category, "key1"));
+				s.translate(Locale.GERMAN.toString(), providerId, "key1"));
 
 		assertEquals("Wert De", s.translate(Locale.FRENCH.toString(),
 				"org.eclipse.e4.core.tests", "key1"));
 
 		assertEquals("Value En",
-				s.translate(Locale.ENGLISH.toString(), category, "key1"));
+				s.translate(Locale.ENGLISH.toString(), providerId, "key1"));
 
 		assertEquals("unknown",
-				s.translate(Locale.ENGLISH.toString(), category, "unknown"));
+				s.translate(Locale.ENGLISH.toString(), providerId, "unknown"));
 
-		assertEquals(
-				2,
-				s.translate(Locale.FRENCH.toString(), category, "key1", "key2").length);
-		assertEquals(
-				"Wert De",
-				s.translate(Locale.FRENCH.toString(), category, "key1", "key2")[0]);
-		assertEquals(
-				"Wert De 2",
-				s.translate(Locale.FRENCH.toString(), category, "key1", "key2")[1]);
+		assertEquals(2, s.translate(Locale.FRENCH.toString(), providerId,
+				"key1", "key2").length);
+		assertEquals("Wert De", s.translate(Locale.FRENCH.toString(),
+				providerId, "key1", "key2")[0]);
+		assertEquals("Wert De 2", s.translate(Locale.FRENCH.toString(),
+				providerId, "key1", "key2")[1]);
 
-		assertEquals(2, s.translate(Locale.ENGLISH.toString(), category,
+		assertEquals(2, s.translate(Locale.ENGLISH.toString(), providerId,
 				"key1", "key2").length);
 		assertEquals("Value En", s.translate(Locale.ENGLISH.toString(),
-				category, "key1", "key2")[0]);
+				providerId, "key1", "key2")[0]);
 		assertEquals("Value En 2", s.translate(Locale.ENGLISH.toString(),
-				category, "key1", "key2")[1]);
+				providerId, "key1", "key2")[1]);
 	}
 
 	public void testTranslationProvider() {
-		String category = "org.eclipse.e4.core.tests.customcat";
+		String providerId = "org.eclipse.e4.core.tests.customcat";
 		ITranslationService s = getService();
 
 		assertEquals("Cust Value En",
-				s.translate(Locale.ENGLISH.toString(), category, "key1"));
+				s.translate(Locale.ENGLISH.toString(), providerId, "key1"));
 
 		Locale.setDefault(Locale.GERMAN);
 
 		assertEquals("Cust Wert De",
-				s.translate(Locale.GERMAN.toString(), category, "key1"));
+				s.translate(Locale.GERMAN.toString(), providerId, "key1"));
 
 		assertEquals("Cust Wert De",
-				s.translate(Locale.FRENCH.toString(), category, "key1"));
+				s.translate(Locale.FRENCH.toString(), providerId, "key1"));
 
 		assertEquals("Cust Value En",
-				s.translate(Locale.ENGLISH.toString(), category, "key1"));
+				s.translate(Locale.ENGLISH.toString(), providerId, "key1"));
 
 		assertEquals("unknown",
-				s.translate(Locale.ENGLISH.toString(), category, "unknown"));
+				s.translate(Locale.ENGLISH.toString(), providerId, "unknown"));
 
-		assertEquals(
-				2,
-				s.translate(Locale.FRENCH.toString(), category, "key1", "key2").length);
-		assertEquals(
-				"Cust Wert De",
-				s.translate(Locale.FRENCH.toString(), category, "key1", "key2")[0]);
-		assertEquals(
-				"Cust Wert De 2",
-				s.translate(Locale.FRENCH.toString(), category, "key1", "key2")[1]);
+		assertEquals(2, s.translate(Locale.FRENCH.toString(), providerId,
+				"key1", "key2").length);
+		assertEquals("Cust Wert De", s.translate(Locale.FRENCH.toString(),
+				providerId, "key1", "key2")[0]);
+		assertEquals("Cust Wert De 2", s.translate(Locale.FRENCH.toString(),
+				providerId, "key1", "key2")[1]);
 
-		assertEquals(2, s.translate(Locale.ENGLISH.toString(), category,
+		assertEquals(2, s.translate(Locale.ENGLISH.toString(), providerId,
 				"key1", "key2").length);
 		assertEquals("Cust Value En", s.translate(Locale.ENGLISH.toString(),
-				category, "key1", "key2")[0]);
+				providerId, "key1", "key2")[0]);
 		assertEquals("Cust Value En 2", s.translate(Locale.ENGLISH.toString(),
-				category, "key1", "key2")[1]);
+				providerId, "key1", "key2")[1]);
 	}
 }
