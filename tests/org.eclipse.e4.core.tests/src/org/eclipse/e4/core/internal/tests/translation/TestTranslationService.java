@@ -1,14 +1,13 @@
 package org.eclipse.e4.core.internal.tests.translation;
 
 import java.util.Locale;
-import java.util.MissingResourceException;
+
+import junit.framework.TestCase;
 
 import org.eclipse.e4.core.internal.tests.CoreTestsActivator;
 import org.eclipse.e4.core.services.translation.ITranslationService;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.ServiceReference;
-
-import junit.framework.TestCase;
 
 public class TestTranslationService extends TestCase {
 	private ITranslationService service;
