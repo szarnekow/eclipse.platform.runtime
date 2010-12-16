@@ -11,6 +11,8 @@
 package org.eclipse.e4.core.internal.services;
 
 import org.eclipse.osgi.service.debug.DebugOptions;
+import org.eclipse.osgi.service.localization.BundleLocalization;
+import org.eclipse.osgi.service.localization.LocaleProvider;
 import org.osgi.framework.BundleActivator;
 import org.osgi.framework.BundleContext;
 import org.osgi.util.tracker.ServiceTracker;
@@ -20,6 +22,8 @@ public class ServicesActivator implements BundleActivator {
 	static private ServicesActivator defaultInstance;
 	private BundleContext bundleContext;
 	private ServiceTracker debugTracker = null;
+	private ServiceTracker localeProviderTracker = null;
+	private ServiceTracker bundleLocalizationTracker = null;
 
 	public ServicesActivator() {
 		defaultInstance = this;
@@ -38,6 +42,17 @@ public class ServicesActivator implements BundleActivator {
 			debugTracker.close();
 			debugTracker = null;
 		}
+
+		if (localeProviderTracker != null) {
+			localeProviderTracker.close();
+			localeProviderTracker = null;
+		}
+
+		if (bundleLocalizationTracker != null) {
+			bundleLocalizationTracker.close();
+			bundleLocalizationTracker = null;
+		}
+
 		bundleContext = null;
 	}
 
@@ -55,4 +70,26 @@ public class ServicesActivator implements BundleActivator {
 		return defaultValue;
 	}
 
+	public LocaleProvider getLocaleProvider() {
+		if (localeProviderTracker == null) {
+			localeProviderTracker = new ServiceTracker(bundleContext,
+					LocaleProvider.class.getName(), null);
+			localeProviderTracker.open();
+		}
+
+		return (LocaleProvider) localeProviderTracker.getService();
+	}
+
+	public BundleLocalization getBundleLocalization() {
+		if (bundleLocalizationTracker == null) {
+			bundleLocalizationTracker = new ServiceTracker(bundleContext,
+					BundleLocalization.class.getName(), null);
+			bundleLocalizationTracker.open();
+		}
+		return (BundleLocalization) bundleLocalizationTracker.getService();
+	}
+
+	public BundleContext getContext() {
+		return bundleContext;
+	}
 }
