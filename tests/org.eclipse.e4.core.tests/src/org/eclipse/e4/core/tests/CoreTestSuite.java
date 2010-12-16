@@ -48,6 +48,7 @@ import org.eclipse.e4.core.internal.tests.di.InvokeTest;
 import org.eclipse.e4.core.internal.tests.di.extensions.InjectionEventTest;
 import org.eclipse.e4.core.internal.tests.di.extensions.InjectionMixedSuppliersTest;
 import org.eclipse.e4.core.internal.tests.di.extensions.InjectionPreferencesTest;
+import org.eclipse.e4.core.internal.tests.translation.TestTranslationService;
 
 public class CoreTestSuite extends TestSuite {
 	public static Test suite() {
@@ -96,5 +97,8 @@ public class CoreTestSuite extends TestSuite {
 		addTestSuite(Bug317183Test.class);
 		addTestSuite(DependenciesLeakTest.class);
 		addTestSuite(ActivationInjectionTest.class);
+		
+		// Translation
+		addTestSuite(TestTranslationService.class);
 	}
 }
