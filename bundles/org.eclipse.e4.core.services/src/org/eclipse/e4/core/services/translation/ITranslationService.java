@@ -14,7 +14,6 @@ import java.util.Locale;
 import java.util.MissingResourceException;
 import java.util.ResourceBundle;
 import org.eclipse.osgi.service.localization.BundleLocalization;
-import org.eclipse.osgi.service.localization.LocaleProvider;
 
 /**
  * Service which can be used to translate texts into locale specific ones.
@@ -36,13 +35,7 @@ import org.eclipse.osgi.service.localization.LocaleProvider;
 public interface ITranslationService {
 	/**
 	 * Translate the key into the default locale.
-	 * <p>
-	 * <b>Locale lookup</b>
-	 * <ul>
-	 * <li>try to use {@link LocaleProvider} service</li>
-	 * <li>use {@link Locale#getDefault()}</li>
-	 * </ul>
-	 * </p>
+	 * 
 	 * <p>
 	 * <b>Category lookup</b>
 	 * <ul>
@@ -52,15 +45,17 @@ public interface ITranslationService {
 	 * </ul>
 	 * </p>
 	 * 
-	 * @param category
-	 *            the category/bundle name to use
+	 * @param locale
+	 *            the locale to use
+	 * @param providerId
+	 *            the providerId
 	 * @param key
 	 *            the key to translate
 	 * @return the translated value, must not be <code>null</code>
 	 * @throws MissingResourceException
 	 *             if some problem occurrs while translating
 	 */
-	public String translate(String category, String key) throws MissingResourceException;
+	public String translate(String locale, String providerId, String key);
 
 	/**
 	 * Translate the key into the default locale.
@@ -76,71 +71,37 @@ public interface ITranslationService {
 	 * 
 	 * @param locale
 	 *            the locale to use
-	 * @param category
-	 *            the category/bundle name to use
+	 * @param providerId
+	 *            the providerId
 	 * @param key
 	 *            the key to translate
 	 * @return the translated value, must not be <code>null</code>
 	 * @throws MissingResourceException
 	 *             if some problem occurrs while translating
 	 */
-	public String translate(Locale locale, String category, String key)
-			throws MissingResourceException;
-
-	/**
-	 * Translate multiple keys at once. See {@link #translate(String, String)} for a detailed
-	 * explanation how the locale and category look up is done
-	 * 
-	 * @param category
-	 *            the category/bundle name to use
-	 * @param keys
-	 *            the keys
-	 * @return the translated keys
-	 * @throws MissingResourceException
-	 *             if one of the keys is not found
-	 * @see #translate(String, String)
-	 */
-	public String[] translate(String category, String... keys) throws MissingResourceException;
-
-	/**
-	 * Translate multiple keys at once. See {@link #translate(String, String)} for a detailed
-	 * explanation how the category look up is done
-	 * 
-	 * @param locale
-	 *            the locale to use
-	 * @param category
-	 *            the category/bundle name to use
-	 * @param keys
-	 *            the keys
-	 * @return the translated keys
-	 * @throws MissingResourceException
-	 *             if one of the keys is not found
-	 * @see #translate(String, String)
-	 */
-	public String[] translate(Locale locale, String category, String... keys)
-			throws MissingResourceException;
+	public String[] translate(String locale, String providerId, String... key);
 
 	/**
 	 * Register a translation provider for a category
 	 * 
 	 * @param category
 	 *            the category
-	 * @param provider
+	 * @param providerId
 	 *            the provider
 	 * @throws IllegalArgumentException
 	 *             thrown if there's already a provider registered
 	 */
-	public void registerTranslationProvider(String category, ITranslationProvider provider)
+	public void registerTranslationProvider(String providerId, ITranslationProvider provider)
 			throws IllegalArgumentException;
 
 	/**
 	 * Unregister a translation provider for a category
 	 * 
-	 * @param category
+	 * @param providerId
 	 *            the category of the provider
 	 * @param provider
 	 *            the provider instance to unregister
 	 * @return <code>true</code> if unregistering succeeded
 	 */
-	public boolean unregisterTranslationProvider(String category, ITranslationProvider provider);
+	public boolean unregisterTranslationProvider(String providerId);
 }

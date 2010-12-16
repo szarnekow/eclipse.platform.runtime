@@ -11,7 +11,6 @@
 package org.eclipse.e4.core.services.translation;
 
 import java.util.Locale;
-import java.util.MissingResourceException;
 import java.util.ResourceBundle;
 
 /**
@@ -43,9 +42,6 @@ public interface ITranslationProvider {
 	 * @param key
 	 *            the key
 	 * @return the translated value must not be <code>null</code>
-	 * @throws MissingResourceException
-	 *             if translation fails because of whatever reason
 	 */
-	public String translate(Locale locale, String category, String key)
-			throws MissingResourceException;
+	public String translate(String locale, String category, String key);
 }
