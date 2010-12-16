@@ -22,10 +22,6 @@ public class TranslationServiceImpl implements ITranslationService {
 	private Map<String, ITranslationProvider> providerMap = Collections
 			.synchronizedMap(new HashMap<String, ITranslationProvider>());
 
-	public TranslationServiceImpl() {
-		System.err.println("Service is created!!!");
-	}
-
 	private ITranslationProvider getProvider(String providerId) {
 		ITranslationProvider pv = providerMap.get(providerId);
 		if (pv == null) {
