@@ -89,28 +89,4 @@ public interface ITranslationService {
 	 *             if some problem occurrs while translating
 	 */
 	public String[] translate(String locale, String providerId, String... key);
-
-	/**
-	 * Register a translation provider for a category
-	 * 
-	 * @param category
-	 *            the category
-	 * @param providerId
-	 *            the provider
-	 * @throws IllegalArgumentException
-	 *             thrown if there's already a provider registered
-	 */
-	public void registerTranslationProvider(String providerId, ITranslationProvider provider)
-			throws IllegalArgumentException;
-
-	/**
-	 * Unregister a translation provider for a category
-	 * 
-	 * @param providerId
-	 *            the category of the provider
-	 * @param provider
-	 *            the provider instance to unregister
-	 * @return <code>true</code> if unregistering succeeded
-	 */
-	public boolean unregisterTranslationProvider(String providerId);
 }

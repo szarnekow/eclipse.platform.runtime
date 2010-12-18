@@ -82,7 +82,7 @@ public class TranslationServiceImpl implements ITranslationService {
 		return keys;
 	}
 
-	public void registerTranslationProvider(String providerId, ITranslationProvider provider) {
+	private void registerTranslationProvider(String providerId, ITranslationProvider provider) {
 		if (providerMap.containsKey(providerId)) {
 			throw new IllegalArgumentException(
 					"Can not register more than one provider for category '" + providerId + "'."); //$NON-NLS-1$//$NON-NLS-2$
@@ -90,7 +90,7 @@ public class TranslationServiceImpl implements ITranslationService {
 		providerMap.put(providerId, provider);
 	}
 
-	public boolean unregisterTranslationProvider(String providerId) {
+	private boolean unregisterTranslationProvider(String providerId) {
 		return providerMap.remove(providerId) != null;
 	}
 
