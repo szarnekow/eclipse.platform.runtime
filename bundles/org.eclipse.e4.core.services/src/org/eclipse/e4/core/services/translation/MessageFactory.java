@@ -10,11 +10,15 @@
  ******************************************************************************/
 package org.eclipse.e4.core.services.translation;
 
-import com.google.common.collect.MapMaker;
+import java.lang.ref.Reference;
+import java.lang.ref.SoftReference;
+import java.lang.ref.WeakReference;
 import java.lang.reflect.Field;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
-import java.util.concurrent.ConcurrentMap;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import org.eclipse.e4.core.services.translation.Message.ReferenceType;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
@@ -22,11 +26,14 @@ import org.osgi.framework.FrameworkUtil;
 import org.osgi.framework.ServiceReference;
 
 public class MessageFactory {
+	// TODO Clean up maps
 
-	// Cache so when multiple views with same information are shown we only hold
-	// one instance
-	private static ConcurrentMap<Object, Object> SOFT_CACHE = new MapMaker().softValues().makeMap();
-	private static ConcurrentMap<Object, Object> WEAK_CACHE = new MapMaker().weakValues().makeMap();
+	// Cache so when multiple instance use the same message class
+	private static Map<Object, Reference<Object>> SOFT_CACHE = Collections
+			.synchronizedMap(new HashMap<Object, Reference<Object>>());
+
+	private static Map<Object, Reference<Object>> WEAK_CACHE = Collections
+			.synchronizedMap(new HashMap<Object, Reference<Object>>());
 
 	@SuppressWarnings("unchecked")
 	public static <M> M createInstance(final String locale, final Class<M> messages)
@@ -34,16 +41,24 @@ public class MessageFactory {
 		String key = messages.getName() + "_" + locale;
 
 		final Message annotation = messages.getAnnotation(Message.class);
-		ConcurrentMap<Object, Object> cache = null;
+		Map<Object, Reference<Object>> cache = null;
+		ReferenceType type = ReferenceType.NONE;
 
 		if (annotation == null || annotation.referenceType() == ReferenceType.SOFT) {
 			cache = SOFT_CACHE;
+			type = ReferenceType.SOFT;
 		} else if (annotation.referenceType() == ReferenceType.WEAK) {
 			cache = WEAK_CACHE;
+			type = ReferenceType.WEAK;
 		}
 
 		if (cache != null && cache.containsKey(key)) {
-			return (M) SOFT_CACHE.get(key);
+			Reference<M> ref = (Reference<M>) cache.get(key);
+			M o = ref.get();
+			if (o != null) {
+				return o;
+			}
+			cache.remove(key);
 		}
 
 		M instance;
@@ -68,7 +83,11 @@ public class MessageFactory {
 		}
 
 		if (cache != null) {
-			cache.put(key, instance);
+			if (type == ReferenceType.SOFT) {
+				cache.put(key, new SoftReference<Object>(instance));
+			} else if (type == ReferenceType.WEAK) {
+				cache.put(key, new WeakReference<Object>(instance));
+			}
 		}
 
 		return instance;
