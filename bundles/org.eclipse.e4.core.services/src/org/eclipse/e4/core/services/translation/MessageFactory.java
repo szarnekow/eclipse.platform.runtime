@@ -67,7 +67,7 @@ public class MessageFactory {
 			throws InstantiationException, IllegalAccessException {
 		Message annotation = messages.getAnnotation(Message.class);
 
-		if (annotation != null) {
+		if (annotation != null && !annotation.providerId().equals("")) {
 			Bundle b = FrameworkUtil.getBundle(MessageFactory.class);
 			BundleContext ctx = b.getBundleContext();
 			ServiceReference<ITranslationService> reference = ctx
