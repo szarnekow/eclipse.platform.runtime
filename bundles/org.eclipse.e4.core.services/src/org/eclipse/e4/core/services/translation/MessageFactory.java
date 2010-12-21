@@ -15,6 +15,7 @@ import java.lang.reflect.Field;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.concurrent.ConcurrentMap;
+import org.eclipse.e4.core.services.translation.Message.ReferenceType;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.FrameworkUtil;
@@ -24,28 +25,37 @@ public class MessageFactory {
 
 	// Cache so when multiple views with same information are shown we only hold
 	// one instance
-	private static ConcurrentMap<Object, Object> cachedInstances = new MapMaker().softValues()
-			.makeMap();
+	private static ConcurrentMap<Object, Object> SOFT_CACHE = new MapMaker().softValues().makeMap();
+	private static ConcurrentMap<Object, Object> WEAK_CACHE = new MapMaker().weakValues().makeMap();
 
 	@SuppressWarnings("unchecked")
 	public static <M> M createInstance(final String locale, final Class<M> messages)
 			throws InstantiationException, IllegalAccessException {
-
 		String key = messages.getName() + "_" + locale;
-		if (cachedInstances.containsKey(key)) {
-			return (M) cachedInstances.get(key);
+
+		final Message annotation = messages.getAnnotation(Message.class);
+		ConcurrentMap<Object, Object> cache = null;
+
+		if (annotation == null || annotation.referenceType() == ReferenceType.SOFT) {
+			cache = SOFT_CACHE;
+		} else if (annotation.referenceType() == ReferenceType.WEAK) {
+			cache = WEAK_CACHE;
+		}
+
+		if (cache != null && cache.containsKey(key)) {
+			return (M) SOFT_CACHE.get(key);
 		}
 
 		M instance;
 
 		if (System.getSecurityManager() == null) {
-			instance = doCreateInstance(locale, messages);
+			instance = doCreateInstance(locale, messages, annotation);
 		} else {
 			instance = AccessController.doPrivileged(new PrivilegedAction<M>() {
 
 				public M run() {
 					try {
-						return doCreateInstance(locale, messages);
+						return doCreateInstance(locale, messages, annotation);
 					} catch (InstantiationException e) {
 						e.printStackTrace();
 					} catch (IllegalAccessException e) {
@@ -57,14 +67,15 @@ public class MessageFactory {
 			});
 		}
 
-		cachedInstances.put(key, instance);
+		if (cache != null) {
+			cache.put(key, instance);
+		}
 
 		return instance;
 	}
 
-	private static <M> M doCreateInstance(String locale, Class<M> messages)
+	private static <M> M doCreateInstance(String locale, Class<M> messages, Message annotation)
 			throws InstantiationException, IllegalAccessException {
-		Message annotation = messages.getAnnotation(Message.class);
 
 		if (annotation != null && !annotation.providerId().equals("")) {
 			Bundle b = FrameworkUtil.getBundle(MessageFactory.class);

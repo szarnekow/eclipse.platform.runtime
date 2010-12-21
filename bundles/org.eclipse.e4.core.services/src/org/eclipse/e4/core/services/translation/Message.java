@@ -11,5 +11,11 @@
 package org.eclipse.e4.core.services.translation;
 
 public @interface Message {
+	public enum ReferenceType {
+		NONE, SOFT, WEAK
+	}
+
 	String providerId() default "";
+
+	ReferenceType referenceType() default ReferenceType.SOFT;
 }
