@@ -10,21 +10,39 @@
  ******************************************************************************/
 package org.eclipse.e4.core.services.translation;
 
+import com.google.common.collect.MapMaker;
 import java.lang.reflect.Field;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
+import java.util.concurrent.ConcurrentMap;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.FrameworkUtil;
 import org.osgi.framework.ServiceReference;
 
 public class MessageFactory {
+
+	// Cache so when multiple views with same information are shown we only hold
+	// one instance
+	private static ConcurrentMap<Object, Object> cachedInstances = new MapMaker().softValues()
+			.makeMap();
+
+	@SuppressWarnings("unchecked")
 	public static <M> M createInstance(final String locale, final Class<M> messages)
 			throws InstantiationException, IllegalAccessException {
+
+		String key = messages.getName() + "_" + locale;
+		if (cachedInstances.containsKey(key)) {
+			System.err.println("cached ....");
+			return (M) cachedInstances.get(key);
+		}
+
+		M instance;
+
 		if (System.getSecurityManager() == null) {
-			return doCreateInstance(locale, messages);
+			instance = doCreateInstance(locale, messages);
 		} else {
-			return AccessController.doPrivileged(new PrivilegedAction<M>() {
+			instance = AccessController.doPrivileged(new PrivilegedAction<M>() {
 
 				public M run() {
 					try {
@@ -39,6 +57,10 @@ public class MessageFactory {
 
 			});
 		}
+
+		cachedInstances.put(key, instance);
+
+		return instance;
 	}
 
 	private static <M> M doCreateInstance(String locale, Class<M> messages)
