@@ -33,7 +33,6 @@ public class MessageFactory {
 
 		String key = messages.getName() + "_" + locale;
 		if (cachedInstances.containsKey(key)) {
-			System.err.println("cached ....");
 			return (M) cachedInstances.get(key);
 		}
 
