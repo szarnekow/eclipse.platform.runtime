@@ -84,7 +84,7 @@ public class MessageFactory {
 					fields[i].setAccessible(true);
 				}
 
-				fields[i].set(instance, provider.translate(locale, basename));
+				fields[i].set(instance, provider.translate(locale, fields[i].getName()));
 			}
 
 			return instance;
