@@ -8,7 +8,7 @@
  *  Contributors:
  *      Tom Schind<tom.schindl@bestsolution.at> - initial API and implementation
  ******************************************************************************/
-package org.eclipse.e4.core.services.translation;
+package org.eclipse.e4.core.internal.services;
 
 import java.lang.ref.Reference;
 import java.lang.ref.SoftReference;
@@ -18,31 +18,54 @@ import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.Map.Entry;
+import org.eclipse.e4.core.services.translation.IMessageFactoryService;
+import org.eclipse.e4.core.services.translation.ITranslationService;
+import org.eclipse.e4.core.services.translation.Message;
 import org.eclipse.e4.core.services.translation.Message.ReferenceType;
+import org.eclipse.e4.core.services.translation.PropertiesBundleTranslationProvider;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.FrameworkUtil;
 import org.osgi.framework.ServiceReference;
 
-public class MessageFactory {
-	// TODO Clean up maps
+public class MessageFactoryServiceImpl implements IMessageFactoryService {
 
 	// Cache so when multiple instance use the same message class
-	private static Map<Object, Reference<Object>> SOFT_CACHE = Collections
+	private Map<Object, Reference<Object>> SOFT_CACHE = Collections
 			.synchronizedMap(new HashMap<Object, Reference<Object>>());
 
-	private static Map<Object, Reference<Object>> WEAK_CACHE = Collections
+	private Map<Object, Reference<Object>> WEAK_CACHE = Collections
 			.synchronizedMap(new HashMap<Object, Reference<Object>>());
 
-	@SuppressWarnings("unchecked")
-	public static <M> M createInstance(final String locale, final Class<M> messages)
+	private int CLEANUPCOUNT = 0;
+
+	public <M> M createInstance(final String locale, final Class<M> messages)
 			throws InstantiationException, IllegalAccessException {
 		String key = messages.getName() + "_" + locale;
 
 		final Message annotation = messages.getAnnotation(Message.class);
 		Map<Object, Reference<Object>> cache = null;
 		ReferenceType type = ReferenceType.NONE;
+
+		if (++CLEANUPCOUNT > 1000) {
+			Iterator<Entry<Object, Reference<Object>>> it = WEAK_CACHE.entrySet().iterator();
+			while (it.hasNext()) {
+				if (it.next().getValue().get() == null) {
+					it.remove();
+				}
+			}
+
+			it = SOFT_CACHE.entrySet().iterator();
+			while (it.hasNext()) {
+				if (it.next().getValue().get() == null) {
+					it.remove();
+				}
+			}
+			CLEANUPCOUNT = 0;
+		}
 
 		if (annotation == null || annotation.referenceType() == ReferenceType.SOFT) {
 			cache = SOFT_CACHE;
@@ -53,6 +76,7 @@ public class MessageFactory {
 		}
 
 		if (cache != null && cache.containsKey(key)) {
+			@SuppressWarnings("unchecked")
 			Reference<M> ref = (Reference<M>) cache.get(key);
 			M o = ref.get();
 			if (o != null) {
@@ -97,7 +121,7 @@ public class MessageFactory {
 			throws InstantiationException, IllegalAccessException {
 
 		if (annotation != null && !annotation.providerId().equals("")) {
-			Bundle b = FrameworkUtil.getBundle(MessageFactory.class);
+			Bundle b = FrameworkUtil.getBundle(MessageFactoryServiceImpl.class);
 			BundleContext ctx = b.getBundleContext();
 			ServiceReference<ITranslationService> reference = ctx
 					.getServiceReference(ITranslationService.class);
