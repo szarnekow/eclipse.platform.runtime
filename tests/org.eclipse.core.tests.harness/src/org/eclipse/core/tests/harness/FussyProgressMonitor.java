@@ -21,6 +21,8 @@ import org.eclipse.core.runtime.jobs.Job;
  * invocation.
  * Call sanityCheck() after the operation whose progress monitoring
  * you are testing.
+ * 
+ * another change
  */
 public class FussyProgressMonitor extends TestProgressMonitor {
 	public class FussyProgressAssertionFailed extends AssertionFailedError {
